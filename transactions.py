@@ -1,6 +1,5 @@
 class Transaction:
     """ A transaction on the Ethereum network """
-'
     def __init__(self, sender, fee):
         self.sender = sender
         self.fee = fee
@@ -8,7 +7,7 @@ class Transaction:
 
 class UniswapTransaction(Transaction):
     def __init__(self, first_token, second_token, first_amount, second_amount, sender, fee):
-        Transaction(sender, fee)
+        super().__init__(sender, fee)
         # tokens involved in transaction
         self.first_token = first_token
         self.second_token = second_token
