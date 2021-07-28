@@ -32,3 +32,8 @@ class AddLiquidityTransaction(UniswapTransaction):
     def execute(ETHState):
         pass
 
+class RemoveLiquidityTransaction(UniswapTransaction):
+
+    def execute(ETHState):
+        pass
+
