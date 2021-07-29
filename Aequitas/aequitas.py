@@ -50,7 +50,8 @@ def aequitas():
   for i in n_tx_lists:
     n_granularized_tx_lists[i] = granularize(n_tx_lists.get(i), starting_timestamp, granularity)
   print(n_granularized_tx_lists)
-  # compute_initial_set_of_edges(n_granularized_tx_lists)
+  compute_initial_set_of_edges(n_granularized_tx_lists)
+ 
   # complete_list_of_edges()
   # finalized_output_(graph, {transactions_present_in_all_lists})
   # return
