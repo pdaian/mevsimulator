@@ -1,5 +1,6 @@
 import networkx as nx
 import random
+import itertools
 from typing import Dict, List
 # number of nodes n
 # number of byzantine / malicious nodes f
@@ -7,10 +8,10 @@ from typing import Dict, List
 # g : granularity
 
 class Tx:
-    def __init__(self, content, timestamp):
+    def __init__(self, content, timestamp, bucket = None):
         self.content = content
         self.timestamp = timestamp #Unix timestamp
-        self.bucket = None
+        self.bucket = bucket
 
     def __str__(self):
         return f'Transaction: {self.content} , {self.timestamp}'
@@ -50,7 +51,11 @@ def granularize(tx_ordering, starting_timestamp: int ,granularity : int) -> List
     tx.bucket = quotient
   return tx_ordering
 
-def compute_initial_set_of_edges(granularized_tx_lists: Dict) -> nx.DiGraph:
+def get_all_tx_in_batch(tx_list: Dict[int, Tx]) -> Dict[int, Tx]:
+ # TODO 
+  return
+
+def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
   """
   line 15-25
 
@@ -59,6 +64,22 @@ def compute_initial_set_of_edges(granularized_tx_lists: Dict) -> nx.DiGraph:
   Returns:
     need not be complete. Graph need not be acyclic
   """
+  nodes = set()
+  print(type(tx_dict))
+  for key in tx_dict:
+    for tx in tx_dict[key]:
+      if tx.content not in nodes:
+        nodes.add(tx.content)
+  print(sorted(nodes))
+
+  # Look at all possible combinations, i.e the edges
+  undirected_edge_candidates = (list(itertools.combinations(nodes, 2)))
+  n = len(nodes)
+  assert(len(undirected_edge_candidates) == ((n**2-n)/2))
+  print(sorted(undirected_edge_candidates, key = lambda x: (x[0],x[1])))
+
+  # TODO: for each possible undirected_edge_candidates:
+
   G = nx.DiGraph()
   return G
 # compute_initial_set_of_edges returns: 
@@ -102,10 +123,18 @@ def finalize_output(H) -> List:
 def aequitas():
   for i in n_tx_lists:
     n_granularized_tx_lists[i] = granularize(n_tx_lists.get(i), starting_timestamp, granularity)
-  # print(n_granularized_tx_lists)
-  G = compute_initial_set_of_edges(n_granularized_tx_lists)
-  H = complete_list_of_edges(G)
-  finalize_output(H)
+  print(n_granularized_tx_lists)
+  
+  cheating_dict = {
+    1: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='c', timestamp=1326244366, bucket = 0), Tx(content='e', timestamp=1326244367, bucket = 0), Tx(content='d', timestamp=1326244368, bucket = 0)],
+    2: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)],
+    3: [Tx(content='b', timestamp=1326244364, bucket = 0), Tx(content='a', timestamp=1326244365, bucket = 0), Tx(content='c', timestamp=1326244366, bucket = 0), Tx(content='e', timestamp=1326244367, bucket = 0), Tx(content='d', timestamp=1326244368, bucket = 0)], 
+    4: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='d', timestamp=1326244366, bucket = 0), Tx(content='c', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)], 
+    5: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)]}
+
+  G = compute_initial_set_of_edges(cheating_dict)
+  # H = complete_list_of_edges(G)
+  # finalize_output(H)
   # return
 
 
