@@ -1,6 +1,6 @@
 import networkx as nx
 import random
-from typing import List
+from typing import Dict, List
 # number of nodes n
 # number of byzantine / malicious nodes f
 # gamma : order fairness parameter
@@ -41,41 +41,72 @@ granularity = 5
 n_granularized_tx_lists = {}
 
 def granularize(tx_ordering, starting_timestamp: int ,granularity : int) -> List[Tx]:
+  """Puts txs into buckets
+  line 10-12
+  All transactions with timestamps [0,g-1] are in the same bucket, [g, 2g-1] are in the same bucket etc.
+  """
   for tx in tx_ordering:
     quotient = int((tx.timestamp - starting_timestamp)//granularity)
     tx.bucket = quotient
   return tx_ordering
 
+def compute_initial_set_of_edges(granularized_tx_lists: Dict) -> nx.DiGraph:
+  """
+  line 15-25
+
+  Args:
+
+  Returns:
+    need not be complete. Graph need not be acyclic
+  """
+  G = nx.DiGraph()
+  return G
+# compute_initial_set_of_edges returns: 
+# (a->b), (a->c), (a->d), (a->e)
+#                (b->d), (b->e)
+#                (c->d), (c->e)
+
+def complete_list_of_edges(G: nx.DiGraph) -> nx.DiGraph:
+  """
+  line 28-48:
+  builds graph and for every pair of vertices that are not
+  connected, look at common descendants
+  If there is a common descendant, 
+    add (a,b) edge if a has more descendants
+    (b,a) if b has more descendants
+  deterministically (say alphabetically) if equal
+
+  If there is no common descendant, then there is currently not enough information to order both a,b
+  (one of them could still be ordered).
+  Args:
+
+  Returns: H, a fully connected graph
+  """
+  H = nx.DiGraph()
+  return H
+
+def finalize_output(H) -> List:
+  """
+  line 49-52:
+  Compute the condensation graph of H(collapse the strongly connected components into a single vertex)
+  Then topologically sort this graph and then output the sorting (Here, every index is a set of vertices)
+  
+  Returns: A list of final output ordering
+  """
+  condensed_DAG = nx.condensation(H)
+  # TODO: need to keep track of which nodes gets condensed into one single node, because we need to output an ordering eventually
+  output = list(nx.topological_sort(condensed_DAG))
+  return output
+# Final output ordering: [a,b,c]
+
 def aequitas():
   for i in n_tx_lists:
     n_granularized_tx_lists[i] = granularize(n_tx_lists.get(i), starting_timestamp, granularity)
-  print(n_granularized_tx_lists)
-  compute_initial_set_of_edges(n_granularized_tx_lists)
- 
-  # complete_list_of_edges()
-  # finalized_output_(graph, {transactions_present_in_all_lists})
+  # print(n_granularized_tx_lists)
+  G = compute_initial_set_of_edges(n_granularized_tx_lists)
+  H = complete_list_of_edges(G)
+  finalize_output(H)
   # return
-
-
-def compute_initial_set_of_edges():
-  return [(a,b)] # returns a list of edges
-
-def complete_list_of_edges():
-  # builds graph and for every pair of vertices that are not
-  # connected, look at common descendants
-  # If there is a common descendant,
-  # add (a,b) edge if a has more descendants
-  # (b,a) if b has more descendants
-  # deterministically (say alphabetically) if equal
-  return dissected_graph
-
-def setup_function(input_transaction_orderings):
-  return {transactions_present_in_all_lists}
-
-def finalized_output(graph, transactions_present_in_all_lists):
-  # if they do, add an edge and then remove those that are not
-  # fully connected
-  return list
 
 
 ## TESTS

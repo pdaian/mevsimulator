@@ -1,0 +1,104 @@
+n <- number of nodes
+f <- number of byzantine / malicious nodes
+gamma <- order fairness parameter
+g <- granularity
+
+Aequitas function 
+    Input - N lists of transaction input orderings
+    Output - List of transaction orderings (fair ordering)
+
+    // For both input/output, you can have different granularity of timestamps
+    // Choose granularity g -> All transactions with timestamps [1,g] are in the same bucket,
+    // [g+1, 2g] are in the same bucket.
+
+Algorithm:
+    Create an empty graph
+    For all pairs of transactions (a,b):
+        if a < b in majority (should be >= gamma * n - f) of orderings:
+            // note that x < y is also counted for an ordering even when only x is present
+            add an edge (a,b) to the graph
+        else if b < a in majority (should be >= gamma * n - f) of orderings:
+            add an edge (b,a) to the graph
+
+    // At this point, you have a graph G where transactions are vertices
+    // and some vertices have edges between them.
+    // Graph need not be complete. Graph need not be acyclic
+
+
+    // Now, we need to add edges to vertices that dont have them currently.
+    // Lets say vertices a and b dont have an edge between them
+    // Now look at if a and b have some common descendant (some vertex thats a descendant of both)
+    // If there is a common descendant,
+        add (a,b) edge if a has more descendants
+        (b,a) if b has more descendants
+        deterministically (say alphabetically) if equal
+    // If there is no common descendant, then there is currently not enough information to order both a,b
+    // (one of them could still be ordered).
+    // This is the streaming part. New transactions will come in later that will order a,b
+
+    // Basically, the output list will not contain both
+
+
+    // Now, to compute the output list
+    
+    Remove from graph G all transactions that are:
+        (1) Not in all input lists or descendants of such transactions
+        (2) Not fully connected
+    // (now there is exactly one edge between every pair of vertices)
+    // Let this graph be H
+    Compute the condensation graph of H (collapse the strongly connected components into a single vertex)
+    // Hopefully, any graph algorithm library you use should have this algorithm inbuilt
+
+    Topologically sort this graph and then output the sorting (Here, every index is a set of vertices)
+    
+    While outputting the final list, you can just get back what transactions are in each set
+
+
+// Example 1 : simple
+Node 1: [a,b,c,d,e]
+Node 2: [a,b,c,e,d]
+Node 3: [a,b,c,d,e]
+
+(a->b), (a->c), (a->d), (a->e)
+        (b->c), (b->d), (b->e)
+                (c->d), (c->e)
+                        (d->e)
+// simple scenario, the graph is complete
+Final output ordering: a->b->c->d->e
+
+// Example 2: common descendant, and no common descendant
+Node 1: [a,b,c,e,d]
+Node 2: [a,c,b,d,e]
+Node 3: [b,a,c,e,d]
+Node 4: [a,b,d,c,e]
+Node 5: [a,c,b,d,e]
+
+gamma = 4/5 (to add an edge, you need x<y in 4 nodes)
+
+(a->b), (a->c), (a->d), (a->e)
+                (b->d), (b->e)
+                (c->d), (c->e)
+
+// b and e dont have an edge but they have a common descendant
+// Lets say, we add (b,c) as the edge deterministically
+// d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
+Final output ordering: :a->b->c
+
+// Example 3: have cycles, look at condensation graph
+Node 1: [b,c,e,a,d]  
+Node 2: [b,c,e,a,d]   
+Node 3: [a,c,b,d,e]   
+Node 4: [a,c,b,d,e]   
+Node 5: [e,a,b,c,d]   
+
+gamma = 3/5 (to add an edge, you need x<y in 3 nodes)
+
+(a->b), (a->c), (a->d), 
+                (b->d), (b->e)
+                (c->d), (c->e)
+                               (e->a)  
+
+// The graph contains two cycles: a,b,e and a,c,e
+// [a,b,c,e] is the strongly connected component(SCC), they are assumed to be output at the same time
+// we leave the specification up to the implementation (because we don’t consider unfairness within such an SCC)
+Final output ordering:  [a,b,c,e] -> d
