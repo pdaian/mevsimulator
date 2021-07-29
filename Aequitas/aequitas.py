@@ -1,28 +1,60 @@
-
-import numpy as np
 import networkx as nx
 import random
-from matplotlib import pyplot as plt
-
+from typing import List
 # number of nodes n
 # number of byzantine / malicious nodes f
 # gamma : order fairness parameter
 # g : granularity
 
-def aequitas():
-  n_transaction_lists = []
-  for _ in n_transaction_lists:
-    granularize(each_transaction_list)
-  compute_initial_set_of_edges(n_granularized_list_of_transactions)
-  complete_list_of_edges()
-  finalized_output_(graph, {transactions_present_in_all_lists})
-  return
+class Tx:
+    def __init__(self, content, timestamp):
+        self.content = content
+        self.timestamp = timestamp #Unix timestamp
+        self.bucket = None
 
-def granularize(transaction_ordering):
-  # takes in transaction_ordering
-  # with transaction and timestamp
-  # output transactions eg to 0 to g, g+1 to 2g in 2nd slot
-  return [{transactions}]
+    def __str__(self):
+        return f'Transaction: {self.content} , {self.timestamp}'
+
+    def __repr__(self):
+        return f"Tx(content='{self.content}', timestamp={self.timestamp}, bucket = {self.bucket})"    
+
+class Vote:
+  nodeID: int
+  ordering: List[Tx]
+
+# Node 1: [a,b,c,e,d]
+# Node 2: [a,c,b,d,e]
+# Node 3: [b,a,c,e,d]
+# Node 4: [a,b,d,c,e]
+# Node 5: [a,c,b,d,e]
+
+# assume this is already sorted, i.e. an ordering
+n_tx_lists = {1: [Tx("a",1326244364), Tx("b",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244369), Tx("g",1326244370)],
+              2: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368), Tx("f",1326244369), Tx("g",1326244375)],
+              3: [Tx("b",1326244364), Tx("a",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244376)],
+              4: [Tx("a",1326244364), Tx("b",1326244365), Tx("d",1326244366), Tx("c",1326244367), Tx("e",1326244368)],
+              5: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368)]
+              }
+
+starting_timestamp = 1326244364
+granularity = 5
+n_granularized_tx_lists = {}
+
+def granularize(tx_ordering, starting_timestamp: int ,granularity : int) -> List[Tx]:
+  for tx in tx_ordering:
+    quotient = int((tx.timestamp - starting_timestamp)//granularity)
+    tx.bucket = quotient
+  return tx_ordering
+
+def aequitas():
+  for i in n_tx_lists:
+    n_granularized_tx_lists[i] = granularize(n_tx_lists.get(i), starting_timestamp, granularity)
+  print(n_granularized_tx_lists)
+  # compute_initial_set_of_edges(n_granularized_tx_lists)
+  # complete_list_of_edges()
+  # finalized_output_(graph, {transactions_present_in_all_lists})
+  # return
+
 
 def compute_initial_set_of_edges():
   return [(a,b)] # returns a list of edges
@@ -36,10 +68,10 @@ def complete_list_of_edges():
   # deterministically (say alphabetically) if equal
   return dissected_graph
 
-def setup_function(input_transaction_orderings)
+def setup_function(input_transaction_orderings):
   return {transactions_present_in_all_lists}
 
-def finalized_output(graph, {transactions_present_in_all_lists}):
+def finalized_output(graph, transactions_present_in_all_lists):
   # if they do, add an edge and then remove those that are not
   # fully connected
   return list
@@ -76,3 +108,8 @@ def finalized_output(graph, {transactions_present_in_all_lists}):
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
 # Final output ordering: :a->b->c
 
+def main():
+    aequitas()
+
+if __name__ == "__main__":
+    main()
