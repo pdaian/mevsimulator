@@ -2,6 +2,7 @@ import networkx as nx
 import random
 import itertools
 import numpy as np
+import pprint as pp
 from typing import Dict, List, Tuple
 
 # number of nodes n
@@ -9,7 +10,6 @@ from typing import Dict, List, Tuple
 # gamma : order fairness parameter
 # g : granularity
 
-gamma = 4
 
 
 class Tx:
@@ -24,24 +24,6 @@ class Tx:
     def __repr__(self):
         return f"Tx(content ='{self.content}', timestamp = {self.timestamp}, bucket = {self.bucket})"
 
-
-# Node 1: [a,b,c,e,d]
-# Node 2: [a,c,b,d,e]
-# Node 3: [b,a,c,e,d]
-# Node 4: [a,b,d,c,e]
-# Node 5: [a,c,b,d,e]
-
-# assume this is already sorted, i.e. an ordering
-n_tx_lists = {1: [Tx("a",1326244364), Tx("b",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244369), Tx("g",1326244370)],
-              2: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368), Tx("f",1326244369), Tx("g",1326244375)],
-              3: [Tx("b",1326244364), Tx("a",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244376)],
-              4: [Tx("a",1326244364), Tx("b",1326244365), Tx("d",1326244366), Tx("c",1326244367), Tx("e",1326244368)],
-              5: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368)]
-              }
-
-starting_timestamp = 1326244364
-granularity = 5
-n_granularized_tx_lists = {}
 
 
 def granularize(tx_ordering, starting_timestamp: int, granularity: int) -> List[Tx]:
@@ -60,7 +42,7 @@ def get_all_tx_in_batch(tx_list: Dict[int, Tx]) -> Dict[int, Tx]:
     return
 
 
-def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
+def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph, Dict]:
     """
     line 15-25
 
@@ -68,24 +50,18 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
 
     Returns:
       need not be complete. Graph need not be acyclic
-    """
+    """    
+    print("\n============== Aequitas: compute_initial_set_of_edges ==============")
     nodes = set()
     for key in tx_dict:
         for tx in tx_dict[key]:
-            if tx.content not in nodes:
-                nodes.add(tx.content)
+            if tx not in nodes:
+                nodes.add(tx)
     nodes = sorted(nodes)
     print("nodes:", nodes)
     n = len(nodes)
 
-    # TODO: Some data processing and cleaning to get the following simplified_list
-    simplified_list = [
-        ["a", "b", "c", "e", "d"],
-        ["a", "c", "b", "d", "e"],
-        ["b", "a", "c", "e", "d"],
-        ["a", "b", "d", "c", "e"],
-        ["a", "c", "b", "d", "e"],
-    ]
+    tx_list = list(tx_dict.values())
 
     edge_candidates = list(itertools.combinations(nodes, 2))
     edge_candidates = sorted(edge_candidates, key=lambda x: (x[0], x[1]))
@@ -96,10 +72,11 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
     indices = {}
     for i in nodes:
         idx = []
-        for row in simplified_list:
+        for row in tx_list:
             idx.append(row.index(i))
         indices[i] = np.array(idx)
-    print("indices:", indices)
+    print("indices:")
+    pp.pprint(indices)
     # 'a': [0,0,1,0,0],
     # 'b': [1,2,0,1,2],
     # 'c': [2,1,2,3,1],
@@ -110,7 +87,8 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
     pairs_dict = {}
     for key in edge_candidates:
         pairs_dict[key] = indices[key[0]] - indices[key[1]]
-    print("pairs_dict:", pairs_dict)
+    print("pairs_dict:")
+    pp.pprint(pairs_dict)
     # ('a', 'b'): array([-1, -2,  1, -1, -2]), 
     # ('a', 'c'): array([-2, -1, -1, -3, -1]), 
     # ('a', 'd'): array([-4, -3, -3, -2, -3]), 
@@ -126,7 +104,8 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
     counting_dict = {}
     for key in pairs_dict:
         counting_dict[key] = np.sum(np.array((pairs_dict[key])) < 0, axis=0)
-    print("counting_dict:", counting_dict)
+    print("counting_dict:")
+    pp.pprint(counting_dict)
     # ('a', 'b'): 4,
     # ('a', 'c'): 5,
     # ('a', 'd'): 5, 
@@ -146,10 +125,12 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
             edge_dict[i] = counting_dict[i]
         else:
             no_edge_dict[i] = counting_dict[i]
-    print("no_edge_dict: ", no_edge_dict)
+    print("no_edge_dict:")
+    pp.pprint(no_edge_dict)
     # ('b', 'c'): 3, 
     # ('d', 'e'): 3
-    print("edge_dict: ", edge_dict)
+    print("edge_dict: ")
+    pp.pprint(edge_dict)
     # ('a', 'b'): 4, 
     # ('a', 'c'): 5, 
     # ('a', 'd'): 5, 
@@ -187,6 +168,7 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
   
     Returns: H, a fully connected graph
     """
+    print("\n============== Aequitas: complete_list_of_edges ==============")
     descendants_0 = iter([])
     descendants_1 = iter([])
     for key in no_edge_dict:
@@ -233,32 +215,96 @@ def finalize_output(H) -> List:
 
     Returns: A list of final output ordering
     """
+    print("\n============== Aequitas: finalize_output ==============")
+    print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
-    # TODO: need to keep track of which nodes gets condensed into one single node, because we need to output an ordering eventually
-    output = list(nx.topological_sort(condensed_DAG))
-    return output
-# Final output ordering: [a,b,c]
+    d =  condensed_DAG.graph['mapping']
+    print("d: ", d)
+    print("condensed_DAG.edges: ", condensed_DAG.edges)
 
+    assert(nx.is_directed_acyclic_graph(condensed_DAG) is True)
+    int_output = list(nx.topological_sort(condensed_DAG))
+    print("int_output: ", int_output)
+    node_output = [None]*len(int_output)
+    for k,v in d.items():
+      if v in int_output:
+        node_output[int_output.index(v)]=k
+    print("node_output: ", node_output)
+    return node_output
+# Final output ordering: [a,b,c]?
 
-def aequitas():
-    for i in n_tx_lists:
-        n_granularized_tx_lists[i] = granularize(
-            n_tx_lists.get(i), starting_timestamp, granularity
-        )
-    print(n_granularized_tx_lists)
+def prettyprint(d, indent=0):
+   for key, value in d.items():
+      print('\t' * indent + str(key))
+      if isinstance(value, dict):
+         prettyprint(value, indent+1)
+      else:
+         print('\t' * (indent+1) + str(value))
 
-    # TODO: Some data processing and cleaning to get the following simplified_dict
-    simplified_dict = {
-    1: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='c', timestamp=1326244366, bucket = 0), Tx(content='e', timestamp=1326244367, bucket = 0), Tx(content='d', timestamp=1326244368, bucket = 0)],
-    2: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)],
-    3: [Tx(content='b', timestamp=1326244364, bucket = 0), Tx(content='a', timestamp=1326244365, bucket = 0), Tx(content='c', timestamp=1326244366, bucket = 0), Tx(content='e', timestamp=1326244367, bucket = 0), Tx(content='d', timestamp=1326244368, bucket = 0)], 
-    4: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='d', timestamp=1326244366, bucket = 0), Tx(content='c', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)], 
-    5: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)]}
-
-    (G, no_edge_dict) = compute_initial_set_of_edges(simplified_dict)
+# Calling aequitas once means processing this bucket/epoch/batch of Txs according to Aequitas ordering
+def aequitas(tx_dict: Dict, gamma: int):
+    (G, no_edge_dict) = compute_initial_set_of_edges(tx_dict, gamma)
     H = complete_list_of_edges(G, no_edge_dict)
-    # finalize_output(H)
-    # return
+    O = finalize_output(H)
+    print("\n============== Aequitas: done ==============")
+    return O
+
+def main():
+    # Example 2
+    # Node 1: [a,b,c,e,d]
+    # Node 2: [a,c,b,d,e]
+    # Node 3: [b,a,c,e,d]
+    # Node 4: [a,b,d,c,e]
+    # Node 5: [a,c,b,d,e]
+
+    starting_timestamp = 1326244364
+    granularity = 5
+
+    # This is a sample input to the aequitas main algorithm, we assume this is already sorted upon being passed, i.e. an ordering
+    tx_dict = {
+                1: [Tx("a",1326244364), Tx("b",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244369), Tx("g",1326244370)],
+                2: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368), Tx("f",1326244369), Tx("g",1326244375)],
+                3: [Tx("b",1326244364), Tx("a",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244376)],
+                4: [Tx("a",1326244364), Tx("b",1326244365), Tx("d",1326244366), Tx("c",1326244367), Tx("e",1326244368)],
+                5: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368)]}
+    
+    # The function granularize figures txs into buckets/epochs/batches
+    granularized_tx_dict = {}
+    for i in tx_dict:
+        granularized_tx_dict[i] = granularize(
+            tx_dict.get(i), starting_timestamp, granularity
+        )
+    print("granularized_tx_dict: ")
+    pp.pprint(granularized_tx_dict)
+
+    # TODO: Some data processing and cleaning to get the following granularized_tx_dict
+
+    granularized_tx_dict_expected = {
+        1: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='b', timestamp = 1326244365, bucket = 0), Tx(content ='c', timestamp = 1326244366, bucket = 0), Tx(content ='e', timestamp = 1326244367, bucket = 0), Tx(content ='d', timestamp = 1326244368, bucket = 0), Tx(content ='f', timestamp = 1326244369, bucket = 1), Tx(content ='g', timestamp = 1326244370, bucket = 1)],
+        2: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='c', timestamp = 1326244365, bucket = 0), Tx(content ='b', timestamp = 1326244366, bucket = 0), Tx(content ='d', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0), Tx(content ='f', timestamp = 1326244369, bucket = 1), Tx(content ='g', timestamp = 1326244375, bucket = 2)],
+        3: [Tx(content ='b', timestamp = 1326244364, bucket = 0), Tx(content ='a', timestamp = 1326244365, bucket = 0), Tx(content ='c', timestamp = 1326244366, bucket = 0), Tx(content ='e', timestamp = 1326244367, bucket = 0), Tx(content ='d', timestamp = 1326244368, bucket = 0), Tx(content ='f', timestamp = 1326244376, bucket = 2)],
+        4: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='b', timestamp = 1326244365, bucket = 0), Tx(content ='d', timestamp = 1326244366, bucket = 0), Tx(content ='c', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0)],
+        5: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='c', timestamp = 1326244365, bucket = 0), Tx(content ='b', timestamp = 1326244366, bucket = 0), Tx(content ='d', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0)]}
+
+    # TODO: Some data processing and cleaning to get the following simplified tx_dict for the 0th bucket/epoch/batch to be processed
+
+    tx_dict = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "c", "b", "d", "e"],
+        3: ["b", "a", "c", "e", "d"],
+        4: ["a", "b", "d", "c", "e"],
+        5: ["a", "c", "b", "d", "e"],
+    }
+
+    gamma = 4
+
+    # Calling aequitas once means processing this bucket/epoch/batch of Txs according to Aequitas ordering
+    result = aequitas(tx_dict, gamma)
+    print("final result: ", result)
+
+
+if __name__ == "__main__":
+    main()
 
 
 ## TESTS
@@ -290,6 +336,7 @@ def aequitas():
 # // b and c dont have an edge but they have a common descendant: e
 # // Lets say, we add (b,c) as the edge deterministically
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
+# TODO How is d, e output?
 # Final output ordering: :a->b->c
 
 # // Example 3: have cycles, look at condensation graph
@@ -312,9 +359,3 @@ def aequitas():
 # Final output ordering:  [a,b,c,e] -> d
 
 
-def main():
-    aequitas()
-
-
-if __name__ == "__main__":
-    main()
