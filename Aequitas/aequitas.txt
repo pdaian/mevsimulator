@@ -79,7 +79,7 @@ gamma = 4/5 (to add an edge, you need x<y in 4 nodes)
                 (b->d), (b->e)
                 (c->d), (c->e)
 
-// b and e dont have an edge but they have a common descendant
+// b and c dont have an edge but they have a common descendant: e
 // Lets say, we add (b,c) as the edge deterministically
 // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
 Final output ordering: :a->b->c

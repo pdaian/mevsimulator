@@ -2,7 +2,7 @@ import networkx as nx
 import random
 import itertools
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Tuple
 # number of nodes n
 # number of byzantine / malicious nodes f
 # gamma : order fairness parameter
@@ -58,7 +58,7 @@ def get_all_tx_in_batch(tx_list: Dict[int, Tx]) -> Dict[int, Tx]:
  # TODO 
   return
 
-def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
+def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
   """
   line 15-25
 
@@ -68,7 +68,6 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
     need not be complete. Graph need not be acyclic
   """
   nodes = set()
-  print(type(tx_dict))
   for key in tx_dict:
     for tx in tx_dict[key]:
       if tx.content not in nodes:
@@ -105,7 +104,7 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
 # 'd': [4,3,4,2,3],
 # 'e': [3,4,3,4,4]
 
-  # Compute the differences between all pairs of txs, a negative value in this matix means key[0] is in front of key [1]
+  # Compute the differences between all pairs of txs, a negative value in this matrix means key[0] is in front of key[1]
   pairs_dict={}
   for key in edge_candidates:
      pairs_dict[key] = indices[key[0]] - indices[key[1]]
@@ -139,10 +138,15 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
 
   # Filter using gamma - the fairness parameter as the thereshold
   edge_dict = {}
+  no_edge_dict = {}
   for i in counting_dict:
     if counting_dict[i] >= gamma:
       edge_dict[i] = counting_dict[i]
+    else:
+      no_edge_dict[i] = counting_dict[i]
+  print("no_edge_dict: ", no_edge_dict)
   print("edge_dict: ", edge_dict)
+  assert(len(edge_dict)+len(no_edge_dict)==(n**2-n)/2)
 # ('a', 'b'): 4, 
 # ('a', 'c'): 5, 
 # ('a', 'd'): 5, 
@@ -157,17 +161,17 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
   for i in edge_dict:
     G.add_edge(str(i[0]),str(i[1]))
   print("G.graph: ",G.edges)
-  return G
-# returns a graph: 
+  return G, no_edge_dict
+# returns a graph, and the empty edges: 
 # (a->b), (a->c), (a->d), (a->e)
 #                 (b->d), (b->e)
 #                 (c->d), (c->e)
 
-def complete_list_of_edges(G: nx.DiGraph) -> nx.DiGraph:
+def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
   """
   line 28-48:
   builds graph and for every pair of vertices that are not
-  connected, look at common descendants
+  connected, look at common descendant
   If there is a common descendant, 
     add (a,b) edge if a has more descendants
     (b,a) if b has more descendants
@@ -179,7 +183,29 @@ def complete_list_of_edges(G: nx.DiGraph) -> nx.DiGraph:
 
   Returns: H, a fully connected graph
   """
-  H = nx.DiGraph()
+  descendants_0 = iter([])
+  descendants_1 = iter([])
+  for key in no_edge_dict:
+    assert(H.has_edge(key[0],key[1]) is False)
+    print("(%s, %s) does NOT have an edge, looking at common descendants: "% (key[0],key[1]))
+    descendants_0 = list(H.successors(key[0]))
+    descendants_1 = list(H.successors(key[1]))
+    print("%s's descendants: " % key[0], descendants_0)
+    print("%s's descendants: " % key[1], descendants_1)
+    if len(list(set(descendants_0) & set(descendants_1))) == 0:
+      has_common_descendants = False
+      print("node %s and node %s have no common descendant, not enough info"% (key[0],key[1]))
+    else:
+      has_common_descendants = True
+      if len(descendants_0)>=len(descendants_1):
+        H.add_edge(key[0],key[1])
+        print("node %s has more or equal descendants than %s, adding edge  %s -> %s" % (key[0],key[1],key[0],key[1]))
+      else:
+        H.add_edge(key[1],key[0])
+        print("node %s has more descendants than %s, adding edge  %s -> %s"% (key[1],key[0],key[1],key[0]))
+  n = len(H.nodes)
+  # TODO: what about the edge with not enough info? Fully connected?
+  # assert (len(H.edges)==(n**2-n)/2), "H is NOT a fully connected graph"
   return H
 
 def finalize_output(H) -> List:
@@ -209,9 +235,8 @@ def aequitas():
     4: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='d', timestamp=1326244366, bucket = 0), Tx(content='c', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)], 
     5: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)]}
 
-  G = compute_initial_set_of_edges(simplified_dict)
-  # TODO
-  # H = complete_list_of_edges(G)
+  (G, no_edge_dict) = compute_initial_set_of_edges(simplified_dict)
+  H = complete_list_of_edges(G, no_edge_dict)
   # finalize_output(H)
   # return
 
@@ -242,7 +267,7 @@ def aequitas():
 #                 (b->d), (b->e)
 #                 (c->d), (c->e)
 
-# // b and e dont have an edge but they have a common descendant
+# // b and c dont have an edge but they have a common descendant: e
 # // Lets say, we add (b,c) as the edge deterministically
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
 # Final output ordering: :a->b->c
