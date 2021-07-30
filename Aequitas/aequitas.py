@@ -184,7 +184,7 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
         if len(list(set(descendants_0) & set(descendants_1))) == 0:
             has_common_descendants = False
             print(
-                "node %s and node %s have no common descendant, not enough info"
+                "node %s and node %s have no common descendant, not enough info \n"
                 % (key[0], key[1])
             )
         else:
@@ -192,13 +192,13 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
             if len(descendants_0) >= len(descendants_1):
                 H.add_edge(key[0], key[1])
                 print(
-                    "node %s has more or equal descendants than %s, adding edge  %s -> %s"
+                    "node %s has more or equal descendants than %s, adding edge  %s -> %s \n"
                     % (key[0], key[1], key[0], key[1])
                 )
             else:
                 H.add_edge(key[1], key[0])
                 print(
-                    "node %s has more descendants than %s, adding edge  %s -> %s"
+                    "node %s has more descendants than %s, adding edge  %s -> %s \n"
                     % (key[1], key[0], key[1], key[0])
                 )
     n = len(H.nodes)
@@ -219,8 +219,8 @@ def finalize_output(H) -> List:
     print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
     d =  condensed_DAG.graph['mapping']
-    print("d: ", d)
-    print("condensed_DAG.edges: ", condensed_DAG.edges)
+    print("mapping: ", d)
+    print("condensed_DAG: ", condensed_DAG.edges)
 
     assert(nx.is_directed_acyclic_graph(condensed_DAG) is True)
     int_output = list(nx.topological_sort(condensed_DAG))
