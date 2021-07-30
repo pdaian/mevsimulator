@@ -3,6 +3,7 @@ import random
 import itertools
 import numpy as np
 import pprint as pp
+import sys
 from typing import Dict, List, Tuple
 
 # number of nodes n
@@ -42,7 +43,7 @@ def get_all_tx_in_batch(tx_list: Dict[int, Tx]) -> Dict[int, Tx]:
     return
 
 
-def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph, Dict]:
+def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.DiGraph, Dict]:
     """
     line 15-25
 
@@ -52,6 +53,13 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph,
       need not be complete. Graph need not be acyclic
     """    
     print("\n============== Aequitas: compute_initial_set_of_edges ==============")
+    
+    n = len(tx_dict)
+    print("n = %s, gamma = %s, f = %s" % (n, gamma, f))
+    if not (n > 2 * f/(2 * gamma - 1)):
+        print("2 * f/(2 * gamma - 1) = %s" %(2 * f/(2 * gamma - 1)))
+        sys.exit("Corruption Bound Check Failed, Exit")
+
     nodes = set()
     for key in tx_dict:
         for tx in tx_dict[key]:
@@ -59,13 +67,13 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph,
                 nodes.add(tx)
     nodes = sorted(nodes)
     print("nodes:", nodes)
-    n = len(nodes)
+    m = len(nodes)
 
     tx_list = list(tx_dict.values())
 
     edge_candidates = list(itertools.combinations(nodes, 2))
     edge_candidates = sorted(edge_candidates, key=lambda x: (x[0], x[1]))
-    assert len(edge_candidates) == ((n ** 2 - n) / 2)  # O(n^2) combinations
+    assert len(edge_candidates) == ((m ** 2 - m) / 2)  # O(n^2) combinations
     print("edge_candidates: ", edge_candidates)
 
     # Get the indices of each tx in every nodes's vote
@@ -77,11 +85,6 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph,
         indices[i] = np.array(idx)
     print("indices:")
     pp.pprint(indices)
-    # 'a': [0,0,1,0,0],
-    # 'b': [1,2,0,1,2],
-    # 'c': [2,1,2,3,1],
-    # 'd': [4,3,4,2,3],
-    # 'e': [3,4,3,4,4]
 
     # Compute the differences between all pairs of txs, a negative value in this matrix means key[0] is in front of key[1]
     pairs_dict = {}
@@ -89,16 +92,6 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph,
         pairs_dict[key] = indices[key[0]] - indices[key[1]]
     print("pairs_dict:")
     pp.pprint(pairs_dict)
-    # ('a', 'b'): array([-1, -2,  1, -1, -2]), 
-    # ('a', 'c'): array([-2, -1, -1, -3, -1]), 
-    # ('a', 'd'): array([-4, -3, -3, -2, -3]), 
-    # ('a', 'e'): array([-3, -4, -2, -4, -4]), 
-    # ('b', 'c'): array([-1,  1, -2, -2,  1]), 
-    # ('b', 'd'): array([-3, -1, -4, -1, -1]), 
-    # ('b', 'e'): array([-2, -2, -3, -3, -2]), 
-    # ('c', 'd'): array([-2, -2, -2,  1, -2]), 
-    # ('c', 'e'): array([-1, -3, -1, -1, -3]), 
-    # ('d', 'e'): array([ 1, -1,  1, -2, -1])
 
     # Count number of negative elements
     counting_dict = {}
@@ -106,40 +99,21 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph,
         counting_dict[key] = np.sum(np.array((pairs_dict[key])) < 0, axis=0)
     print("counting_dict:")
     pp.pprint(counting_dict)
-    # ('a', 'b'): 4,
-    # ('a', 'c'): 5,
-    # ('a', 'd'): 5, 
-    # ('a', 'e'): 5, 
-    # ('b', 'c'): 3, 
-    # ('b', 'd'): 5, 
-    # ('b', 'e'): 5, 
-    # ('c', 'd'): 4, 
-    # ('c', 'e'): 5, 
-    # ('d', 'e'): 3
 
     # Filter using gamma - the fairness parameter as the thereshold
     edge_dict = {}
     no_edge_dict = {}
+    
     for i in counting_dict:
-        if counting_dict[i] >= gamma:
+        if counting_dict[i] >= n * gamma - f:
             edge_dict[i] = counting_dict[i]
         else:
             no_edge_dict[i] = counting_dict[i]
     print("no_edge_dict:")
     pp.pprint(no_edge_dict)
-    # ('b', 'c'): 3, 
-    # ('d', 'e'): 3
     print("edge_dict: ")
     pp.pprint(edge_dict)
-    # ('a', 'b'): 4, 
-    # ('a', 'c'): 5, 
-    # ('a', 'd'): 5, 
-    # ('a', 'e'): 5, 
-    # ('b', 'd'): 5, 
-    # ('b', 'e'): 5, 
-    # ('c', 'd'): 4, 
-    # ('c', 'e'): 5
-    assert len(edge_dict) + len(no_edge_dict) == (n ** 2 - n) / 2
+    assert len(edge_dict) + len(no_edge_dict) == (m ** 2 - m) / 2
 
     # Add edges to the graph
     G = nx.DiGraph()
@@ -147,10 +121,7 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int) -> Tuple[nx.DiGraph,
         G.add_edge(str(i[0]), str(i[1]))
     print("G.graph: ", G.edges)
     return G, no_edge_dict
-# returns a graph, and the empty edges:(b, c), (d, e)
-# (a->b), (a->c), (a->d), (a->e)
-#                 (b->d), (b->e)
-#                 (c->d), (c->e
+# returns a graph, and the empty edges
 
 def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
     """
@@ -171,12 +142,17 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
     print("\n============== Aequitas: complete_list_of_edges ==============")
     descendants_0 = iter([])
     descendants_1 = iter([])
+    if len(no_edge_dict) == 0:
+        n = len(H.nodes)
+        assert(len(H.edges) == (n ** 2 - n) / 2)
+        print("The graph is already fully connected")
     for key in no_edge_dict:
         assert H.has_edge(key[0], key[1]) is False
         print(
             "(%s, %s) does NOT have an edge, looking at common descendants: "
             % (key[0], key[1])
         )
+        # TODO: If they are in the same SCC, pass
         descendants_0 = list(H.successors(key[0]))
         descendants_1 = list(H.successors(key[1]))
         print("%s's descendants: " % key[0], descendants_0)
@@ -184,7 +160,7 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
         if len(list(set(descendants_0) & set(descendants_1))) == 0:
             has_common_descendants = False
             print(
-                "node %s and node %s have no common descendant, not enough info"
+                "node %s and node %s have no common descendant, not enough info \n"
                 % (key[0], key[1])
             )
         else:
@@ -192,20 +168,22 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
             if len(descendants_0) >= len(descendants_1):
                 H.add_edge(key[0], key[1])
                 print(
-                    "node %s has more or equal descendants than %s, adding edge  %s -> %s"
+                    "node %s has more or equal descendants than %s, adding edge  %s -> %s \n"
                     % (key[0], key[1], key[0], key[1])
                 )
             else:
                 H.add_edge(key[1], key[0])
                 print(
-                    "node %s has more descendants than %s, adding edge  %s -> %s"
+                    "node %s has more descendants than %s, adding edge  %s -> %s \n"
                     % (key[1], key[0], key[1], key[0])
                 )
     n = len(H.nodes)
-    # TODO: what about the edge with not enough info? Fully connected?
     # assert (len(H.edges)==(n**2-n)/2), "H is NOT a fully connected graph"
     return H
 
+# TODO: e.g. in Example 2: remove d(0) and (1)
+def prune(H: nx.DiGraph):
+    return H
 
 def finalize_output(H) -> List:
     """
@@ -219,11 +197,13 @@ def finalize_output(H) -> List:
     print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
     d =  condensed_DAG.graph['mapping']
-    print("d: ", d)
-    print("condensed_DAG.edges: ", condensed_DAG.edges)
+    print("mapping: ", d)
+    print("condensed_DAG: ", condensed_DAG.edges)
 
     assert(nx.is_directed_acyclic_graph(condensed_DAG) is True)
-    int_output = list(nx.topological_sort(condensed_DAG))
+
+    removed_DAG = prune(condensed_DAG)
+    int_output = list(nx.topological_sort(removed_DAG))
     print("int_output: ", int_output)
     node_output = [None]*len(int_output)
     for k,v in d.items():
@@ -231,7 +211,7 @@ def finalize_output(H) -> List:
         node_output[int_output.index(v)]=k
     print("node_output: ", node_output)
     return node_output
-# Final output ordering: [a,b,c]?
+# Final output ordering of Example 2: [a,b,c]
 
 def prettyprint(d, indent=0):
    for key, value in d.items():
@@ -242,12 +222,13 @@ def prettyprint(d, indent=0):
          print('\t' * (indent+1) + str(value))
 
 # Calling aequitas once means processing this bucket/epoch/batch of Txs according to Aequitas ordering
-def aequitas(tx_dict: Dict, gamma: int):
-    (G, no_edge_dict) = compute_initial_set_of_edges(tx_dict, gamma)
+def aequitas(tx_dict: Dict, gamma: int, f: int):
+    (G, no_edge_dict) = compute_initial_set_of_edges(tx_dict, gamma, f)
     H = complete_list_of_edges(G, no_edge_dict)
-    O = finalize_output(H)
+    Out = finalize_output(H)
     print("\n============== Aequitas: done ==============")
-    return O
+    return Out
+
 
 def main():
     # Example 2
@@ -288,19 +269,52 @@ def main():
 
     # TODO: Some data processing and cleaning to get the following simplified tx_dict for the 0th bucket/epoch/batch to be processed
 
-    tx_dict = {
+    example_2 = {
         1: ["a", "b", "c", "e", "d"],
         2: ["a", "c", "b", "d", "e"],
         3: ["b", "a", "c", "e", "d"],
         4: ["a", "b", "d", "c", "e"],
         5: ["a", "c", "b", "d", "e"],
     }
+    result_2 = aequitas(example_2, 1, 1)
+    print("Example 2: ", result_2)
 
-    gamma = 4
+    example_2_prime = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "c", "b", "d", "e"],
+        3: ["b", "a", "c", "e", "d"],
+        4: ["a", "b", "d", "c", "e"],
+        5: ["a", "c", "b", "d", "e"],
+    }
+    result_2_prime = aequitas(example_2_prime, 0.8, 1)
+    print("Example 2_prime: ", result_2_prime)
 
-    # Calling aequitas once means processing this bucket/epoch/batch of Txs according to Aequitas ordering
-    result = aequitas(tx_dict, gamma)
-    print("final result: ", result)
+    example_3 = {
+        1: ["b", "c", "e", "a", "d"],
+        2: ["b", "c", "e", "a", "d"],
+        3: ["a", "c", "b", "d", "e"],
+        4: ["a", "c", "b", "d", "e"],
+        5: ["e", "a", "b", "c", "d"],
+    }
+    result_3 = aequitas(example_3, 0.8, 1)
+    print("Example 3: ", result_3)
+
+    example_1 = {
+        1: ["a", "b", "c", "d", "e"],
+        2: ["a", "b", "c", "e", "d"],
+        3: ["a", "b", "c", "d", "e"],
+    }
+    result_1 = aequitas(example_1, 1, 1)
+    print("Example 1: ", result_1)
+
+    # The following test case SHOULD FAIL, due to corruption bound checks
+    example_4 = {
+        1: ["a", "b", "c", "d", "e"],
+        2: ["a", "b", "c", "e", "d"],
+        3: ["a", "b", "c", "d", "e"],
+    }
+    result_4 = aequitas(example_4, 0.8, 1)
+    print("Example 4: ", result_4)
 
 
 if __name__ == "__main__":
@@ -349,7 +363,7 @@ if __name__ == "__main__":
 # gamma = 3/5 (to add an edge, you need x<y in 3 nodes)
 
 # (a->b), (a->c), (a->d),
-#                 (b->d), (b->e)
+#         (b->c), (b->d), (b->e)
 #                 (c->d), (c->e)
 #                                (e->a)
 

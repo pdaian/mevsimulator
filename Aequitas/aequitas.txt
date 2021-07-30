@@ -94,7 +94,7 @@ Node 5: [e,a,b,c,d]
 gamma = 3/5 (to add an edge, you need x<y in 3 nodes)
 
 (a->b), (a->c), (a->d), 
-                (b->d), (b->e)
+        (b->c), (b->d), (b->e)
                 (c->d), (c->e)
                                (e->a)  
 
