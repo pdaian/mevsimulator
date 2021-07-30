@@ -3,11 +3,27 @@ from sequence import *
 from util import *
 import numpy as np
 
+
+
+
+def LimitedRandDoubles(lim):
+    return np.random.uniform(low=0,high=lim,size=(1, 1000000))
+
+
+rand_timing_doubles = LimitedRandDoubles(30.0)
+rand_network_doubles = LimitedRandDoubles(15.0)
+last_timing_double = 0
+last_network_double = 0
+
 def get_timestep():
-    return np.random.random() * 30
+    global last_timing_double, rand_timing_doubles
+    last_timing_double += 1
+    return rand_timing_doubles[0][last_timing_double]
 
 def get_network_delay():
-    return np.random.random() * 15
+    global last_network_double
+    last_network_double += 1
+    return rand_network_doubles[0][last_network_double]
 
 def same_order(txs):
     return txs
@@ -17,6 +33,7 @@ def process_example_uniswap_transactions(data_file, order_function):
 
     # Very messy parser of transactions in plaintext into objects
     transactions = []
+    nodes_seen = {}
     for transaction in open(data_file).read().splitlines():
         transaction = transaction.split()
         tx = None
@@ -46,15 +63,19 @@ def process_example_uniswap_transactions(data_file, order_function):
             transactions.append(tx)
 
 
-        # simulate timing data
-        curr_time = 0.0
-        for tx in transactions:
-            tx.time_sent = curr_time
-            curr_time += get_timestep()
-        tx.nodes_seen = {}
+    # simulate timing data
+    curr_time = 0.0
+    for tx in transactions:
+        tx.time_sent = curr_time
+        curr_time += get_timestep()
         # simulate network data
         for node in range(0, 5):
-            tx.nodes_seen[node] = tx.time_sent + get_network_delay()
+            if not node in nodes_seen:
+                nodes_seen[node] = []
+            nodes_seen[node].append((tx, tx.time_sent + get_network_delay()))
+    for node in range(0, 5):
+        nodes_seen[node] = sorted(nodes_seen[node], key = lambda x : x[1])
+    print(nodes_seen)
 
     transactions = order_function(transactions)
     print("Transactions", transactions)
