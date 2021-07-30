@@ -123,6 +123,9 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     return G, no_edge_dict
 # returns a graph, and the empty edges
 
+def get_list_of_descendants(H: nx.DiGraph, key) ->  List:
+    return list(H.successors(key))
+
 def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
     """
     line 28-48:
@@ -153,8 +156,8 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
             % (key[0], key[1])
         )
         # TODO: If they are in the same SCC, pass
-        descendants_0 = list(H.successors(key[0]))
-        descendants_1 = list(H.successors(key[1]))
+        descendants_0 = get_list_of_descendants(H, key[0])
+        descendants_1 = get_list_of_descendants(H, key[1])
         print("%s's descendants: " % key[0], descendants_0)
         print("%s's descendants: " % key[1], descendants_1)
         if len(list(set(descendants_0) & set(descendants_1))) == 0:
@@ -181,11 +184,50 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
     # assert (len(H.edges)==(n**2-n)/2), "H is NOT a fully connected graph"
     return H
 
+def get_empty_edges(H: nx.DiGraph) -> List:
+    # used undirected edges for easier computing
+    empty_edges = []
+    edge_candidates = sorted(list(itertools.permutations(H.nodes, 2)), key=lambda x: (x[0], x[1]))
+    unsorted_edges = H.edges
+    sorted_edges = sorted(unsorted_edges, key=lambda x: (x[0], x[1]))
+    value = list(set(edge_candidates) - set(sorted_edges))
+    for x, y in value:
+        if (y,x) in empty_edges:
+            continue
+        if (y,x) in value:
+            empty_edges.append((x,y))
+    print("empty_edges", empty_edges)
+    return empty_edges
+
 # TODO: e.g. in Example 2: remove d(0) and (1)
 def prune(H: nx.DiGraph):
+    """
+    remove an edge (x,y) from the condensed DAG if they are 
+    (1) in diferent SCC and 
+    (2) no edge between them and
+    (3) no common descendants
+    """
+    print("****** before pruning ****** : ", H.edges)
+    empty_edges = get_empty_edges(H)
+    if len(empty_edges) != 0:   # no edge between them and
+         for x, y in empty_edges:
+            SCC = list(nx.strongly_connected_components(H))
+            print("SCC:", SCC)
+            SCC_idx_1 = [i for i, lst in enumerate(SCC) if x in lst]
+            SCC_idx_2 = [i for i, lst in enumerate(SCC) if y in lst]
+            print("SCC_idx_1:", SCC_idx_1)
+            print("SCC_idx_2:", SCC_idx_2)
+            SCC_intersection = (list(set(SCC_idx_1) & set(SCC_idx_2))) # The index of the SCC in which both x and y are part of
+            if len(SCC_intersection) == 0 : # is empty, x, y is in different SCC
+                common_descendants = (list(set(get_list_of_descendants(H, x)) & set(get_list_of_descendants(H, y))))
+                print("common_descendants", common_descendants)
+                if len(common_descendants) == 0 : # is empty, x, y has no common descendants
+                    H.remove_node(x)
+                    H.remove_node(y)
+    print("****** after pruning ****** : ", H.edges)
     return H
 
-def finalize_output(H) -> List:
+def finalize_output(H: nx.DiGraph, no_edge_dict: Dict) -> List:
     """
     line 49-52:
     Compute the condensation graph of H(collapse the strongly connected components into a single vertex)
@@ -196,17 +238,26 @@ def finalize_output(H) -> List:
     print("\n============== Aequitas: finalize_output ==============")
     print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
-    d =  condensed_DAG.graph['mapping']
-    print("mapping: ", d)
+    mapping =  condensed_DAG.graph['mapping']
+    print("mapping: ", mapping)
     print("condensed_DAG: ", condensed_DAG.edges)
 
     assert(nx.is_directed_acyclic_graph(condensed_DAG) is True)
 
+    # for v in condensed_DAG.nodes:
+    #     print(condensed_DAG.in_degree(v))
+
     removed_DAG = prune(condensed_DAG)
+    # remove an edge (x,y) from the condensed DAG if they are 
+    # (1) in diferent SCC and 
+    # (2) no edge between them and
+    # (3) no common descendants
+
+    print("removed_DAG: ", removed_DAG.edges)
     int_output = list(nx.topological_sort(removed_DAG))
     print("int_output: ", int_output)
     node_output = [None]*len(int_output)
-    for k,v in d.items():
+    for k,v in mapping.items():
       if v in int_output:
         node_output[int_output.index(v)]=k
     print("node_output: ", node_output)
@@ -225,18 +276,12 @@ def prettyprint(d, indent=0):
 def aequitas(tx_dict: Dict, gamma: int, f: int):
     (G, no_edge_dict) = compute_initial_set_of_edges(tx_dict, gamma, f)
     H = complete_list_of_edges(G, no_edge_dict)
-    Out = finalize_output(H)
+    Out = finalize_output(H, no_edge_dict)
     print("\n============== Aequitas: done ==============")
     return Out
 
 
 def main():
-    # Example 2
-    # Node 1: [a,b,c,e,d]
-    # Node 2: [a,c,b,d,e]
-    # Node 3: [b,a,c,e,d]
-    # Node 4: [a,b,d,c,e]
-    # Node 5: [a,c,b,d,e]
 
     starting_timestamp = 1326244364
     granularity = 5
@@ -255,8 +300,8 @@ def main():
         granularized_tx_dict[i] = granularize(
             tx_dict.get(i), starting_timestamp, granularity
         )
-    print("granularized_tx_dict: ")
-    pp.pprint(granularized_tx_dict)
+    # print("granularized_tx_dict: ")
+    # pp.pprint(granularized_tx_dict)
 
     # TODO: Some data processing and cleaning to get the following granularized_tx_dict
 
@@ -279,96 +324,96 @@ def main():
     result_2 = aequitas(example_2, 1, 1)
     print("Example 2: ", result_2)
 
-    example_2_prime = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "c", "b", "d", "e"],
-        3: ["b", "a", "c", "e", "d"],
-        4: ["a", "b", "d", "c", "e"],
-        5: ["a", "c", "b", "d", "e"],
-    }
-    result_2_prime = aequitas(example_2_prime, 0.8, 1)
-    print("Example 2_prime: ", result_2_prime)
+    # example_2_prime = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "c", "b", "d", "e"],
+    #     3: ["b", "a", "c", "e", "d"],
+    #     4: ["a", "b", "d", "c", "e"],
+    #     5: ["a", "c", "b", "d", "e"],
+    # }
+    # result_2_prime = aequitas(example_2_prime, 0.8, 1)
+    # print("Example 2_prime: ", result_2_prime)
 
-    example_3 = {
-        1: ["b", "c", "e", "a", "d"],
-        2: ["b", "c", "e", "a", "d"],
-        3: ["a", "c", "b", "d", "e"],
-        4: ["a", "c", "b", "d", "e"],
-        5: ["e", "a", "b", "c", "d"],
-    }
-    result_3 = aequitas(example_3, 0.8, 1)
-    print("Example 3: ", result_3)
+    # example_3 = {
+    #     1: ["b", "c", "e", "a", "d"],
+    #     2: ["b", "c", "e", "a", "d"],
+    #     3: ["a", "c", "b", "d", "e"],
+    #     4: ["a", "c", "b", "d", "e"],
+    #     5: ["e", "a", "b", "c", "d"],
+    # }
+    # result_3 = aequitas(example_3, 0.8, 1)
+    # print("Example 3: ", result_3)
 
-    example_1 = {
-        1: ["a", "b", "c", "d", "e"],
-        2: ["a", "b", "c", "e", "d"],
-        3: ["a", "b", "c", "d", "e"],
-    }
-    result_1 = aequitas(example_1, 1, 1)
-    print("Example 1: ", result_1)
+    # example_1 = {
+    #     1: ["a", "b", "c", "d", "e"],
+    #     2: ["a", "b", "c", "e", "d"],
+    #     3: ["a", "b", "c", "d", "e"],
+    # }
+    # result_1 = aequitas(example_1, 1, 1)
+    # print("Example 1: ", result_1)
 
-    # The following test case SHOULD FAIL, due to corruption bound checks
-    example_4 = {
-        1: ["a", "b", "c", "d", "e"],
-        2: ["a", "b", "c", "e", "d"],
-        3: ["a", "b", "c", "d", "e"],
-    }
-    result_4 = aequitas(example_4, 0.8, 1)
-    print("Example 4: ", result_4)
+    # # The following test case SHOULD FAIL, due to corruption bound checks
+    # example_4 = {
+    #     1: ["a", "b", "c", "d", "e"],
+    #     2: ["a", "b", "c", "e", "d"],
+    #     3: ["a", "b", "c", "d", "e"],
+    # }
+    # result_4 = aequitas(example_4, 0.8, 1)
+    # print("Example 4: ", result_4)
 
     # The following test case SHOULD FAIL, due to missing d
-    example_5 = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "b", "c", "e", "e"],
-        3: ["a", "b", "c", "e", "e"],
-    }
-    result_5 = aequitas(example_5, 1, 1)
-    print("Example 5: ", result_5)
+    # example_5 = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "b", "c", "e", "e"],
+    #     3: ["a", "b", "c", "e", "e"],
+    # }
+    # result_5 = aequitas(example_5, 1, 1)
+    # print("Example 5: ", result_5)
     
-    # The following test case SHOULD FAIL, due to corruption bound checks (Float error)
-    example_6 = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "b", "c", "d", "e"],
-        3: ["a", "b", "c", "d", "e"],
-        4: ["a", "b", "c", "d", "e"],
-        5: ["a", "b", "c", "d", "e"],
-    }
-    result_6 = aequitas(example_6, 0.5, 1)
-    print("Example 6: ", result_6)
+    # # The following test case SHOULD FAIL, due to corruption bound checks (Float error)
+    # example_6 = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "b", "c", "d", "e"],
+    #     3: ["a", "b", "c", "d", "e"],
+    #     4: ["a", "b", "c", "d", "e"],
+    #     5: ["a", "b", "c", "d", "e"],
+    # }
+    # result_6 = aequitas(example_6, 0.5, 1)
+    # print("Example 6: ", result_6)
     
-    # The following test case SHOULD FAIL, due to corruption bound checks ("a" node not present)  
-    example_7 = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "b", "c", "d", "e"],
-        3: ["a", "b", "c", "d", "e"],
-        4: ["a", "b", "c", "d", "e"],
-        5: ["a", "b", "c", "d", "e"],
-    }
-    result_7 = aequitas(example_7, 2.0, 1)
-    print("Example 7: ", result_7)
+    # # The following test case SHOULD FAIL, due to corruption bound checks ("a" node not present)  
+    # example_7 = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "b", "c", "d", "e"],
+    #     3: ["a", "b", "c", "d", "e"],
+    #     4: ["a", "b", "c", "d", "e"],
+    #     5: ["a", "b", "c", "d", "e"],
+    # }
+    # result_7 = aequitas(example_7, 2.0, 1)
+    # print("Example 7: ", result_7)
     
-    # Expected Result ["a","b","c","d","e"]
-    example_8 = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "b", "c", "d", "e"],
-        3: ["a", "b", "c", "d", "e"],
-        4: ["a", "b", "c", "d", "e"],
-        5: ["a", "b", "c", "d", "e"],
-    }
-    result_8 = aequitas(example_8, 0.0, 1)
-    print("Example 8: ", result_8)
+    # # Expected Result ["a","b","c","d","e"]
+    # example_8 = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "b", "c", "d", "e"],
+    #     3: ["a", "b", "c", "d", "e"],
+    #     4: ["a", "b", "c", "d", "e"],
+    #     5: ["a", "b", "c", "d", "e"],
+    # }
+    # result_8 = aequitas(example_8, 0.0, 1)
+    # print("Example 8: ", result_8)
 
-    #  Expected Result ["a","b","c","d","e"]
-    example_9 = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "b", "c", "d", "e"],
-        3: ["a", "b", "c", "d", "e"],
-        4: ["a", "b", "c", "d", "e"],
-        5: ["a", "b", "c", "d", "e"],
-    }
-    result_9 = aequitas(example_9, 0.0, 0)
-    print("Example 9: ", result_9)
-    
+    # #  Expected Result ["a","b","c","d","e"]
+    # example_9 = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "b", "c", "d", "e"],
+    #     3: ["a", "b", "c", "d", "e"],
+    #     4: ["a", "b", "c", "d", "e"],
+    #     5: ["a", "b", "c", "d", "e"],
+    # }
+    # result_9 = aequitas(example_9, 0.0, 0)
+    # print("Example 9: ", result_9)
+
 if __name__ == "__main__":
     main()
 
@@ -402,7 +447,6 @@ if __name__ == "__main__":
 # // b and c dont have an edge but they have a common descendant: e
 # // Lets say, we add (b,c) as the edge deterministically
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
-# TODO How is d, e output?
 # Final output ordering: :a->b->c
 
 # // Example 3: have cycles, look at condensation graph
