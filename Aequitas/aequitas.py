@@ -316,7 +316,59 @@ def main():
     result_4 = aequitas(example_4, 0.8, 1)
     print("Example 4: ", result_4)
 
+    # The following test case SHOULD FAIL, due to missing d
+    example_5 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "e", "e"],
+        3: ["a", "b", "c", "e", "e"],
+    }
+    result_5 = aequitas(example_5, 1, 1)
+    print("Example 5: ", result_5)
+    
+    # The following test case SHOULD FAIL, due to corruption bound checks (Float error)
+    example_6 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_6 = aequitas(example_6, 0.5, 1)
+    print("Example 6: ", result_6)
+    
+    # The following test case SHOULD FAIL, due to corruption bound checks ("a" node not present)  
+    example_7 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_7 = aequitas(example_7, 2.0, 1)
+    print("Example 7: ", result_7)
+    
+    # Expected Result ["a","b","c","d","e"]
+    example_8 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_8 = aequitas(example_8, 0.0, 1)
+    print("Example 8: ", result_8)
 
+    #  Expected Result ["a","b","c","d","e"]
+    example_9 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_9 = aequitas(example_9, 0.0, 0)
+    print("Example 9: ", result_9)
+    
 if __name__ == "__main__":
     main()
 
