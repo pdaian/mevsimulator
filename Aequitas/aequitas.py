@@ -68,7 +68,8 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> Tuple[nx.DiGraph, Dict]:
 
     Returns:
       need not be complete. Graph need not be acyclic
-    """
+    """    
+    print("\n==============compute_initial_set_of_edges==============")
     nodes = set()
     for key in tx_dict:
         for tx in tx_dict[key]:
@@ -187,6 +188,7 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
   
     Returns: H, a fully connected graph
     """
+    print("\n==============complete_list_of_edges==============")
     descendants_0 = iter([])
     descendants_1 = iter([])
     for key in no_edge_dict:
@@ -233,11 +235,24 @@ def finalize_output(H) -> List:
 
     Returns: A list of final output ordering
     """
+    print("\n==============finalize_output==============")
+    print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
-    # TODO: need to keep track of which nodes gets condensed into one single node, because we need to output an ordering eventually
-    output = list(nx.topological_sort(condensed_DAG))
-    return output
-# Final output ordering: [a,b,c]
+    d =  condensed_DAG.graph['mapping']
+    print("d: ", d)
+    print("condensed_DAG.edges: ", condensed_DAG.edges)
+
+    assert(nx.is_directed_acyclic_graph(condensed_DAG) is True)
+    int_output = list(nx.topological_sort(condensed_DAG))
+    print("int_output: ", int_output)
+    node_output = [None]*len(int_output)
+    for k,v in d.items():
+      if v in int_output:
+        node_output[int_output.index(v)]=k
+    print("node_output: ", node_output)
+    return node_output
+    
+# Final output ordering: [a,b,c]?
 
 
 def aequitas():
@@ -257,8 +272,7 @@ def aequitas():
 
     (G, no_edge_dict) = compute_initial_set_of_edges(simplified_dict)
     H = complete_list_of_edges(G, no_edge_dict)
-    # finalize_output(H)
-    # return
+    finalize_output(H)
 
 
 ## TESTS
@@ -290,6 +304,7 @@ def aequitas():
 # // b and c dont have an edge but they have a common descendant: e
 # // Lets say, we add (b,c) as the edge deterministically
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
+# TODO How is d, e output?
 # Final output ordering: :a->b->c
 
 # // Example 3: have cycles, look at condensation graph
