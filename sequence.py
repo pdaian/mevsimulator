@@ -8,7 +8,8 @@ class TransactionSequence:
     def get_output(self):
         current_state = ETHState()
         for transaction in self.transactions:
-            current_state = transaction.execute(current_state)
+            transaction.execute(current_state)
+        print("x: %d, y: %d" % (current_state.x, current_state.y))
         return current_state
 
 

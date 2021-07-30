@@ -1,6 +1,13 @@
 from transactions import *
 from sequence import *
 from util import *
+import numpy as np
+
+def get_timestep():
+    return np.random.random() * 30
+
+def get_network_delay():
+    return np.random.random() * 15
 
 def same_order(txs):
     return txs
@@ -38,8 +45,17 @@ def process_example_uniswap_transactions(data_file, order_function):
         if tx is not None:
             transactions.append(tx)
 
-            # TODO simulate timing data
-            # TODO simulate network data
+
+        # simulate timing data
+        curr_time = 0.0
+        for tx in transactions:
+            tx.time_sent = curr_time
+            curr_time += get_timestep()
+        tx.nodes_seen = {}
+        # simulate network data
+        for node in range(0, 5):
+            tx.nodes_seen[node] = tx.time_sent + get_network_delay()
+
     transactions = order_function(transactions)
     print("Transactions", transactions)
     sequence = TransactionSequence(transactions)
