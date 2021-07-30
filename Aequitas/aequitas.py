@@ -124,7 +124,10 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
 # returns a graph, and the empty edges
 
 def get_list_of_descendants(H: nx.DiGraph, key) ->  List:
-    return list(H.successors(key))
+    lst = []
+    if key in H.nodes:
+        lst = list(H.successors(key))
+    return lst
 
 def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
     """
@@ -211,6 +214,7 @@ def prune(H: nx.DiGraph):
     empty_edges = get_empty_edges(H)
     if len(empty_edges) != 0:   # no edge between them and
          for x, y in empty_edges:
+            print("pruning x, y: %s, %s " %(x,y))
             SCC = list(nx.strongly_connected_components(H))
             print("SCC:", SCC)
             SCC_idx_1 = [i for i, lst in enumerate(SCC) if x in lst]
@@ -222,8 +226,14 @@ def prune(H: nx.DiGraph):
                 common_descendants = (list(set(get_list_of_descendants(H, x)) & set(get_list_of_descendants(H, y))))
                 print("common_descendants", common_descendants)
                 if len(common_descendants) == 0 : # is empty, x, y has no common descendants
-                    H.remove_node(x)
-                    H.remove_node(y)
+                    if(x in H.nodes): 
+                        H.remove_node(x)
+                        print("Pruned vertex %s successfully", x)
+                    if(y in H.nodes): 
+                        H.remove_node(y)
+                        print("Pruned vertex %s successfully", y)
+
+
     print("****** after pruning ****** : ", H.edges)
     return H
 
