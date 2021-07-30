@@ -196,17 +196,21 @@ def finalize_output(H) -> List:
     print("\n============== Aequitas: finalize_output ==============")
     print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
-    d =  condensed_DAG.graph['mapping']
-    print("mapping: ", d)
+    mapping =  condensed_DAG.graph['mapping']
+    print("mapping: ", mapping)
     print("condensed_DAG: ", condensed_DAG.edges)
 
     assert(nx.is_directed_acyclic_graph(condensed_DAG) is True)
 
+    for v in condensed_DAG.nodes:
+        print(condensed_DAG.in_degree(v))
+
     removed_DAG = prune(condensed_DAG)
+    print("removed_DAG: ", removed_DAG.edges)
     int_output = list(nx.topological_sort(removed_DAG))
     print("int_output: ", int_output)
     node_output = [None]*len(int_output)
-    for k,v in d.items():
+    for k,v in mapping.items():
       if v in int_output:
         node_output[int_output.index(v)]=k
     print("node_output: ", node_output)
@@ -255,8 +259,8 @@ def main():
         granularized_tx_dict[i] = granularize(
             tx_dict.get(i), starting_timestamp, granularity
         )
-    print("granularized_tx_dict: ")
-    pp.pprint(granularized_tx_dict)
+    # print("granularized_tx_dict: ")
+    # pp.pprint(granularized_tx_dict)
 
     # TODO: Some data processing and cleaning to get the following granularized_tx_dict
 
@@ -279,42 +283,42 @@ def main():
     result_2 = aequitas(example_2, 1, 1)
     print("Example 2: ", result_2)
 
-    example_2_prime = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "c", "b", "d", "e"],
-        3: ["b", "a", "c", "e", "d"],
-        4: ["a", "b", "d", "c", "e"],
-        5: ["a", "c", "b", "d", "e"],
-    }
-    result_2_prime = aequitas(example_2_prime, 0.8, 1)
-    print("Example 2_prime: ", result_2_prime)
+    # example_2_prime = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "c", "b", "d", "e"],
+    #     3: ["b", "a", "c", "e", "d"],
+    #     4: ["a", "b", "d", "c", "e"],
+    #     5: ["a", "c", "b", "d", "e"],
+    # }
+    # result_2_prime = aequitas(example_2_prime, 0.8, 1)
+    # print("Example 2_prime: ", result_2_prime)
 
-    example_3 = {
-        1: ["b", "c", "e", "a", "d"],
-        2: ["b", "c", "e", "a", "d"],
-        3: ["a", "c", "b", "d", "e"],
-        4: ["a", "c", "b", "d", "e"],
-        5: ["e", "a", "b", "c", "d"],
-    }
-    result_3 = aequitas(example_3, 0.8, 1)
-    print("Example 3: ", result_3)
+    # example_3 = {
+    #     1: ["b", "c", "e", "a", "d"],
+    #     2: ["b", "c", "e", "a", "d"],
+    #     3: ["a", "c", "b", "d", "e"],
+    #     4: ["a", "c", "b", "d", "e"],
+    #     5: ["e", "a", "b", "c", "d"],
+    # }
+    # result_3 = aequitas(example_3, 0.8, 1)
+    # print("Example 3: ", result_3)
 
-    example_1 = {
-        1: ["a", "b", "c", "d", "e"],
-        2: ["a", "b", "c", "e", "d"],
-        3: ["a", "b", "c", "d", "e"],
-    }
-    result_1 = aequitas(example_1, 1, 1)
-    print("Example 1: ", result_1)
+    # example_1 = {
+    #     1: ["a", "b", "c", "d", "e"],
+    #     2: ["a", "b", "c", "e", "d"],
+    #     3: ["a", "b", "c", "d", "e"],
+    # }
+    # result_1 = aequitas(example_1, 1, 1)
+    # print("Example 1: ", result_1)
 
-    # The following test case SHOULD FAIL, due to corruption bound checks
-    example_4 = {
-        1: ["a", "b", "c", "d", "e"],
-        2: ["a", "b", "c", "e", "d"],
-        3: ["a", "b", "c", "d", "e"],
-    }
-    result_4 = aequitas(example_4, 0.8, 1)
-    print("Example 4: ", result_4)
+    # # The following test case SHOULD FAIL, due to corruption bound checks
+    # example_4 = {
+    #     1: ["a", "b", "c", "d", "e"],
+    #     2: ["a", "b", "c", "e", "d"],
+    #     3: ["a", "b", "c", "d", "e"],
+    # }
+    # result_4 = aequitas(example_4, 0.8, 1)
+    # print("Example 4: ", result_4)
 
 
 if __name__ == "__main__":
@@ -350,7 +354,6 @@ if __name__ == "__main__":
 # // b and c dont have an edge but they have a common descendant: e
 # // Lets say, we add (b,c) as the edge deterministically
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
-# TODO How is d, e output?
 # Final output ordering: :a->b->c
 
 # // Example 3: have cycles, look at condensation graph
