@@ -56,6 +56,10 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     
     n = len(tx_dict)
     print("n = %s, gamma = %s, f = %s" % (n, gamma, f))
+    if gamma <=1/2 or gamma >1:
+        print("gamma = %s" % gamma)
+        sys.exit("Order-Fairness Parameter Out of Bounds, Exit")
+
     if not (n > 2 * f/(2 * gamma - 1)):
         print("2 * f/(2 * gamma - 1) = %s" %(2 * f/(2 * gamma - 1)))
         sys.exit("Corruption Bound Check Failed, Exit")
@@ -81,7 +85,10 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     for i in nodes:
         idx = []
         for row in tx_list:
-            idx.append(row.index(i))
+            if i in row:
+                idx.append(row.index(i))
+            else:
+                idx.append(999999999999999999999999) # Hacky: if we can't find this tx, assume it has an extremely large index(i.e. arrive late eventually)
         indices[i] = np.array(idx)
     print("indices:")
     pp.pprint(indices)
@@ -228,10 +235,10 @@ def prune(H: nx.DiGraph):
                 if len(common_descendants) == 0 : # is empty, x, y has no common descendants
                     if(x in H.nodes): 
                         H.remove_node(x)
-                        print("Pruned vertex %s successfully", x)
+                        print("Pruned vertex %s successfully"% x)
                     if(y in H.nodes): 
                         H.remove_node(y)
-                        print("Pruned vertex %s successfully", y)
+                        print("Pruned vertex %s successfully"% y)
 
 
     print("****** after pruning ****** : ", H.edges)
@@ -324,6 +331,14 @@ def main():
 
     # TODO: Some data processing and cleaning to get the following simplified tx_dict for the 0th bucket/epoch/batch to be processed
 
+    example_1 = {
+        1: ["a", "b", "c", "d", "e"],
+        2: ["a", "b", "c", "e", "d"],
+        3: ["a", "b", "c", "d", "e"],
+    }
+    result_1 = aequitas(example_1, 1, 1)
+    print("Example 1: ", result_1)
+
     example_2 = {
         1: ["a", "b", "c", "e", "d"],
         2: ["a", "c", "b", "d", "e"],
@@ -334,148 +349,76 @@ def main():
     result_2 = aequitas(example_2, 1, 1)
     print("Example 2: ", result_2)
 
-    # example_2_prime = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "c", "b", "d", "e"],
-    #     3: ["b", "a", "c", "e", "d"],
-    #     4: ["a", "b", "d", "c", "e"],
-    #     5: ["a", "c", "b", "d", "e"],
-    # }
-    # result_2_prime = aequitas(example_2_prime, 0.8, 1)
-    # print("Example 2_prime: ", result_2_prime)
+    example_2_prime = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "c", "b", "d", "e"],
+        3: ["b", "a", "c", "e", "d"],
+        4: ["a", "b", "d", "c", "e"],
+        5: ["a", "c", "b", "d", "e"],
+    }
+    result_2_prime = aequitas(example_2_prime, 0.8, 1)
+    print("Example 2_prime: ", result_2_prime)
 
-    # example_3 = {
-    #     1: ["b", "c", "e", "a", "d"],
-    #     2: ["b", "c", "e", "a", "d"],
-    #     3: ["a", "c", "b", "d", "e"],
-    #     4: ["a", "c", "b", "d", "e"],
-    #     5: ["e", "a", "b", "c", "d"],
-    # }
-    # result_3 = aequitas(example_3, 0.8, 1)
-    # print("Example 3: ", result_3)
+    example_3 = {
+        1: ["b", "c", "e", "a", "d"],
+        2: ["b", "c", "e", "a", "d"],
+        3: ["a", "c", "b", "d", "e"],
+        4: ["a", "c", "b", "d", "e"],
+        5: ["e", "a", "b", "c", "d"],
+    }
+    result_3 = aequitas(example_3, 0.8, 1)
+    print("Example 3: ", result_3)
 
-    # example_1 = {
-    #     1: ["a", "b", "c", "d", "e"],
-    #     2: ["a", "b", "c", "e", "d"],
-    #     3: ["a", "b", "c", "d", "e"],
-    # }
-    # result_1 = aequitas(example_1, 1, 1)
-    # print("Example 1: ", result_1)
 
-    # # The following test case SHOULD FAIL, due to corruption bound checks
-    # example_4 = {
-    #     1: ["a", "b", "c", "d", "e"],
-    #     2: ["a", "b", "c", "e", "d"],
-    #     3: ["a", "b", "c", "d", "e"],
-    # }
-    # result_4 = aequitas(example_4, 0.8, 1)
-    # print("Example 4: ", result_4)
+    # The following test case SHOULD FAIL, due to corruption bound checks
+    example_4 = {
+        1: ["a", "b", "c", "d", "e"],
+        2: ["a", "b", "c", "e", "d"],
+        3: ["a", "b", "c", "d", "e"],
+    }
+    result_4 = aequitas(example_4, 0.8, 1)
+    print("Example 4: ", result_4)
 
     # The following test case SHOULD FAIL, due to missing d
-    # example_5 = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "b", "c", "e", "e"],
-    #     3: ["a", "b", "c", "e", "e"],
-    # }
-    # result_5 = aequitas(example_5, 1, 1)
-    # print("Example 5: ", result_5)
+    example_5 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "e", "e"],
+        3: ["a", "b", "c", "e", "e"],
+    }
+    result_5 = aequitas(example_5, 1, 1)
+    print("Example 5: ", result_5)
     
-    # # The following test case SHOULD FAIL, due to corruption bound checks (Float error)
-    # example_6 = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "b", "c", "d", "e"],
-    #     3: ["a", "b", "c", "d", "e"],
-    #     4: ["a", "b", "c", "d", "e"],
-    #     5: ["a", "b", "c", "d", "e"],
-    # }
-    # result_6 = aequitas(example_6, 0.5, 1)
-    # print("Example 6: ", result_6)
+    # The following test case SHOULD FAIL, due to corruption bound checks (Float error)
+    example_6 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_6 = aequitas(example_6, 0.5, 1)
+    print("Example 6: ", result_6)
     
-    # # The following test case SHOULD FAIL, due to corruption bound checks ("a" node not present)  
-    # example_7 = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "b", "c", "d", "e"],
-    #     3: ["a", "b", "c", "d", "e"],
-    #     4: ["a", "b", "c", "d", "e"],
-    #     5: ["a", "b", "c", "d", "e"],
-    # }
-    # result_7 = aequitas(example_7, 2.0, 1)
-    # print("Example 7: ", result_7)
+    # The following test case SHOULD FAIL, due to corruption bound checks ("a" node not present)  
+    example_7 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_7 = aequitas(example_7, 2.0, 1)
+    print("Example 7: ", result_7)
     
-    # # Expected Result ["a","b","c","d","e"]
-    # example_8 = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "b", "c", "d", "e"],
-    #     3: ["a", "b", "c", "d", "e"],
-    #     4: ["a", "b", "c", "d", "e"],
-    #     5: ["a", "b", "c", "d", "e"],
-    # }
-    # result_8 = aequitas(example_8, 0.0, 1)
-    # print("Example 8: ", result_8)
-
-    # #  Expected Result ["a","b","c","d","e"]
-    # example_9 = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "b", "c", "d", "e"],
-    #     3: ["a", "b", "c", "d", "e"],
-    #     4: ["a", "b", "c", "d", "e"],
-    #     5: ["a", "b", "c", "d", "e"],
-    # }
-    # result_9 = aequitas(example_9, 0.0, 0)
-    # print("Example 9: ", result_9)
+    example_8 = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "b", "c", "d", "e"],
+        3: ["a", "b", "c", "d", "e"],
+        4: ["a", "b", "c", "d", "e"],
+        5: ["a", "b", "c", "d", "e"],
+    }
+    result_8 = aequitas(example_8, 0.0, 1)
+    print("Example 8: ", result_8)
 
 if __name__ == "__main__":
     main()
-
-
-## TESTS
-# // Example 1 : simple
-# Node 1: [a,b,c,d,e]
-# Node 2: [a,b,c,e,d]
-# Node 3: [a,b,c,d,e]
-
-# (a->b), (a->c), (a->d), (a->e)
-#         (b->c), (b->d), (b->e)
-#                 (c->d), (c->e)
-#                         (d->e)
-# // simple scenario, the graph is complete
-# Final output ordering: a->b->c->d->e
-
-# // Example 2: common descendant, and no common descendant
-# Node 1: [a,b,c,e,d]
-# Node 2: [a,c,b,d,e]
-# Node 3: [b,a,c,e,d]
-# Node 4: [a,b,d,c,e]
-# Node 5: [a,c,b,d,e]
-
-# gamma = 4/5 (to add an edge, you need x<y in 4 nodes)
-
-# (a->b), (a->c), (a->d), (a->e)
-#                 (b->d), (b->e)
-#                 (c->d), (c->e)
-
-# // b and c dont have an edge but they have a common descendant: e
-# // Lets say, we add (b,c) as the edge deterministically
-# // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
-# Final output ordering: :a->b->c
-
-# // Example 3: have cycles, look at condensation graph
-# Node 1: [b,c,e,a,d]
-# Node 2: [b,c,e,a,d]
-# Node 3: [a,c,b,d,e]
-# Node 4: [a,c,b,d,e]
-# Node 5: [e,a,b,c,d]
-
-# gamma = 3/5 (to add an edge, you need x<y in 3 nodes)
-
-# (a->b), (a->c), (a->d),
-#         (b->c), (b->d), (b->e)
-#                 (c->d), (c->e)
-#                                (e->a)
-
-# // The graph contains two cycles: a,b,e and a,c,e
-# // [a,b,c,e] is the strongly connected component(SCC), they are assumed to be output at the same time
-# // we leave the specification up to the implementation (because we don’t consider unfairness within such an SCC)
-# Final output ordering:  [a,b,c,e] -> d
-
-
