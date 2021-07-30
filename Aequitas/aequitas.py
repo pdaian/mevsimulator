@@ -3,6 +3,7 @@ import random
 import itertools
 import numpy as np
 import pprint as pp
+import sys
 from typing import Dict, List, Tuple
 
 # number of nodes n
@@ -52,6 +53,13 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
       need not be complete. Graph need not be acyclic
     """    
     print("\n============== Aequitas: compute_initial_set_of_edges ==============")
+    
+    n = len(tx_dict)
+    print("n = %s, gamma = %s, f = %s" % (n, gamma, f))
+    if not (n > 2 * f/(2 * gamma - 1)):
+        print("2 * f/(2 * gamma - 1) = %s" %(2 * f/(2 * gamma - 1)))
+        sys.exit("Corruption Bound Check Failed, Exit")
+
     nodes = set()
     for key in tx_dict:
         for tx in tx_dict[key]:
@@ -96,8 +104,6 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     edge_dict = {}
     no_edge_dict = {}
     
-    # TODO: Check n> 2f/(2*gamma-1)
-    n = len(tx_dict)
     for i in counting_dict:
         if counting_dict[i] >= n * gamma - f:
             edge_dict[i] = counting_dict[i]
@@ -273,34 +279,42 @@ def main():
     result_2 = aequitas(example_2, 1, 1)
     print("Example 2: ", result_2)
 
-    # example_2_prime = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "c", "b", "d", "e"],
-    #     3: ["b", "a", "c", "e", "d"],
-    #     4: ["a", "b", "d", "c", "e"],
-    #     5: ["a", "c", "b", "d", "e"],
-    # }
-    # result_2_prime = aequitas(example_2_prime, 0.8, 1)
-    # print("Example 2_prime: ", result_2_prime)
+    example_2_prime = {
+        1: ["a", "b", "c", "e", "d"],
+        2: ["a", "c", "b", "d", "e"],
+        3: ["b", "a", "c", "e", "d"],
+        4: ["a", "b", "d", "c", "e"],
+        5: ["a", "c", "b", "d", "e"],
+    }
+    result_2_prime = aequitas(example_2_prime, 0.8, 1)
+    print("Example 2_prime: ", result_2_prime)
 
-    # example_3 = {
-    #     1: ["b", "c", "e", "a", "d"],
-    #     2: ["b", "c", "e", "a", "d"],
-    #     3: ["a", "c", "b", "d", "e"],
-    #     4: ["a", "c", "b", "d", "e"],
-    #     5: ["e", "a", "b", "c", "d"],
-    # }
-    # result_3 = aequitas(example_3, 0.8, 1)
-    # print("Example 3: ", result_3)
+    example_3 = {
+        1: ["b", "c", "e", "a", "d"],
+        2: ["b", "c", "e", "a", "d"],
+        3: ["a", "c", "b", "d", "e"],
+        4: ["a", "c", "b", "d", "e"],
+        5: ["e", "a", "b", "c", "d"],
+    }
+    result_3 = aequitas(example_3, 0.8, 1)
+    print("Example 3: ", result_3)
 
-    # example_1 = {
-    #     1: ["a", "b", "c", "d", "e"],
-    #     2: ["a", "b", "c", "e", "d"],
-    #     3: ["a", "b", "c", "d", "e"],
-    # }
-    # result_1 = aequitas(example_1, 1, 1)
-    # print("Example 1: ", result_1)
+    example_1 = {
+        1: ["a", "b", "c", "d", "e"],
+        2: ["a", "b", "c", "e", "d"],
+        3: ["a", "b", "c", "d", "e"],
+    }
+    result_1 = aequitas(example_1, 1, 1)
+    print("Example 1: ", result_1)
 
+    # The following test case SHOULD FAIL, due to corruption bound checks
+    example_4 = {
+        1: ["a", "b", "c", "d", "e"],
+        2: ["a", "b", "c", "e", "d"],
+        3: ["a", "b", "c", "d", "e"],
+    }
+    result_4 = aequitas(example_4, 0.8, 1)
+    print("Example 4: ", result_4)
 
 
 if __name__ == "__main__":
