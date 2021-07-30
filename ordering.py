@@ -36,7 +36,21 @@ class CausalOrdering:
         tx_to_connect = first_tx
         tx_list = [first_tx]
         while node_list:
-            connections = self.get_most_popular_connection_to(first_tx, tx_id_ordered_by_timestamp)
+            added = False
+            connections = self.get_most_popular_connection_to(tx_to_connect, tx_id_ordered_by_timestamp)
+            for connection in connections:
+                tx, _ = connection
+                if tx not in tx_list:
+                    tx_list.append(tx)
+                    node_list.pop(node_list.index(first_tx))
+                    tx_to_connect = tx
+                    added = True
+                    break
+            if not added:
+                tx_list.append(node_list[0])
+                tx = node_list.pop(0)
+                tx_to_connect = tx
+
         return first_tx.content
 
     def first_tx(self, tx_id_ordered_by_timestamp):
