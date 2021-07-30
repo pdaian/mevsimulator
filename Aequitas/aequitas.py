@@ -1,11 +1,14 @@
 import networkx as nx
 import random
 import itertools
+import numpy as np
 from typing import Dict, List
 # number of nodes n
 # number of byzantine / malicious nodes f
 # gamma : order fairness parameter
 # g : granularity
+
+gamma = 4 
 
 class Tx:
     def __init__(self, content, timestamp, bucket = None):
@@ -70,22 +73,95 @@ def compute_initial_set_of_edges(tx_dict: Dict) -> nx.DiGraph:
     for tx in tx_dict[key]:
       if tx.content not in nodes:
         nodes.add(tx.content)
-  print(sorted(nodes))
-
-  # Look at all possible combinations, i.e the edges
-  undirected_edge_candidates = (list(itertools.combinations(nodes, 2)))
+  nodes = sorted(nodes)
+  print("nodes:",nodes)
   n = len(nodes)
-  assert(len(undirected_edge_candidates) == ((n**2-n)/2))
-  print(sorted(undirected_edge_candidates, key = lambda x: (x[0],x[1])))
 
-  # TODO: for each possible undirected_edge_candidates:
+# TODO: Some data processing and cleaning to get the following simplified_list
+  simplified_list = [
+    ['a','b','c','e','d'],
+    ['a','c','b','d','e'],
+    ['b','a','c','e','d'],
+    ['a','b','d','c','e'],
+    ['a','c','b','d','e']
+    ]
 
+  edge_candidates = (list(itertools.combinations(nodes, 2)))
+  edge_candidates = sorted(edge_candidates, key = lambda x: (x[0],x[1]))
+  assert(len(edge_candidates) == ((n**2-n)/2))   #O(n^2) combinations
+  print("edge_candidates: ", edge_candidates)
+  
+  # Get the indices of each tx in every nodes's vote
+  indices = {}
+  for i in nodes:
+    idx = []
+    for row in simplified_list:
+      idx.append(row.index(i))
+    indices[i] = np.array(idx)
+  print("indices:", indices)
+# 'a': [0,0,1,0,0],
+# 'b': [1,2,0,1,2],
+# 'c': [2,1,2,3,1],
+# 'd': [4,3,4,2,3],
+# 'e': [3,4,3,4,4]
+
+  # Compute the differences between all pairs of txs, a negative value in this matix means key[0] is in front of key [1]
+  pairs_dict={}
+  for key in edge_candidates:
+     pairs_dict[key] = indices[key[0]] - indices[key[1]]
+  print("pairs_dict:" , pairs_dict)
+# ('a', 'b'): array([-1, -2,  1, -1, -2]), 
+# ('a', 'c'): array([-2, -1, -1, -3, -1]), 
+# ('a', 'd'): array([-4, -3, -3, -2, -3]), 
+# ('a', 'e'): array([-3, -4, -2, -4, -4]), 
+# ('b', 'c'): array([-1,  1, -2, -2,  1]), 
+# ('b', 'd'): array([-3, -1, -4, -1, -1]), 
+# ('b', 'e'): array([-2, -2, -3, -3, -2]), 
+# ('c', 'd'): array([-2, -2, -2,  1, -2]), 
+# ('c', 'e'): array([-1, -3, -1, -1, -3]), 
+# ('d', 'e'): array([ 1, -1,  1, -2, -1])
+  
+  # Count number of negative elements
+  counting_dict = {}
+  for key in pairs_dict:
+    counting_dict[key] = np.sum(np.array((pairs_dict[key]))< 0, axis=0)
+  print("counting_dict:", counting_dict)
+# ('a', 'b'): 4,
+# ('a', 'c'): 5,
+# ('a', 'd'): 5, 
+# ('a', 'e'): 5, 
+# ('b', 'c'): 3, 
+# ('b', 'd'): 5, 
+# ('b', 'e'): 5, 
+# ('c', 'd'): 4, 
+# ('c', 'e'): 5, 
+# ('d', 'e'): 3
+
+  # Filter using gamma - the fairness parameter as the thereshold
+  edge_dict = {}
+  for i in counting_dict:
+    if counting_dict[i] >= gamma:
+      edge_dict[i] = counting_dict[i]
+  print("edge_dict: ", edge_dict)
+# ('a', 'b'): 4, 
+# ('a', 'c'): 5, 
+# ('a', 'd'): 5, 
+# ('a', 'e'): 5, 
+# ('b', 'd'): 5, 
+# ('b', 'e'): 5, 
+# ('c', 'd'): 4, 
+# ('c', 'e'): 5
+
+  # Add edges to the graph
   G = nx.DiGraph()
+  for i in edge_dict:
+    G.add_edge(str(i[0]),str(i[1]))
+  print("G.graph: ",G.edges)
   return G
-# compute_initial_set_of_edges returns: 
+# returns a graph: 
 # (a->b), (a->c), (a->d), (a->e)
-#                (b->d), (b->e)
-#                (c->d), (c->e)
+#                 (b->d), (b->e)
+#                 (c->d), (c->e)
 
 def complete_list_of_edges(G: nx.DiGraph) -> nx.DiGraph:
   """
@@ -125,14 +201,16 @@ def aequitas():
     n_granularized_tx_lists[i] = granularize(n_tx_lists.get(i), starting_timestamp, granularity)
   print(n_granularized_tx_lists)
   
-  cheating_dict = {
+  # TODO: Some data processing and cleaning to get the following simplified_dict
+  simplified_dict = {
     1: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='c', timestamp=1326244366, bucket = 0), Tx(content='e', timestamp=1326244367, bucket = 0), Tx(content='d', timestamp=1326244368, bucket = 0)],
     2: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)],
     3: [Tx(content='b', timestamp=1326244364, bucket = 0), Tx(content='a', timestamp=1326244365, bucket = 0), Tx(content='c', timestamp=1326244366, bucket = 0), Tx(content='e', timestamp=1326244367, bucket = 0), Tx(content='d', timestamp=1326244368, bucket = 0)], 
     4: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='b', timestamp=1326244365, bucket = 0), Tx(content='d', timestamp=1326244366, bucket = 0), Tx(content='c', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)], 
     5: [Tx(content='a', timestamp=1326244364, bucket = 0), Tx(content='c', timestamp=1326244365, bucket = 0), Tx(content='b', timestamp=1326244366, bucket = 0), Tx(content='d', timestamp=1326244367, bucket = 0), Tx(content='e', timestamp=1326244368, bucket = 0)]}
 
-  G = compute_initial_set_of_edges(cheating_dict)
+  G = compute_initial_set_of_edges(simplified_dict)
+  # TODO
   # H = complete_list_of_edges(G)
   # finalize_output(H)
   # return
@@ -168,6 +246,25 @@ def aequitas():
 # // Lets say, we add (b,c) as the edge deterministically
 # // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
 # Final output ordering: :a->b->c
+
+# // Example 3: have cycles, look at condensation graph
+# Node 1: [b,c,e,a,d]  
+# Node 2: [b,c,e,a,d]   
+# Node 3: [a,c,b,d,e]   
+# Node 4: [a,c,b,d,e]   
+# Node 5: [e,a,b,c,d]   
+
+# gamma = 3/5 (to add an edge, you need x<y in 3 nodes)
+
+# (a->b), (a->c), (a->d), 
+#                 (b->d), (b->e)
+#                 (c->d), (c->e)
+#                                (e->a)  
+
+# // The graph contains two cycles: a,b,e and a,c,e
+# // [a,b,c,e] is the strongly connected component(SCC), they are assumed to be output at the same time
+# // we leave the specification up to the implementation (because we don’t consider unfairness within such an SCC)
+# Final output ordering:  [a,b,c,e] -> d
 
 def main():
     aequitas()
