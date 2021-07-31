@@ -298,10 +298,10 @@ def finalize_output(H: nx.DiGraph, no_edge_dict: Dict) -> List:
     print("removed_DAG: ", removed_DAG.edges)
     int_output = list(nx.topological_sort(removed_DAG))
     print("int_output: ", int_output)
-    node_output_ordered = [set() for _ in range(len(int_output))]
+    node_output_ordered = [set() for _ in range(len(mapping.keys()))]
     node_output_topo = [set() for _ in range(len(int_output))]
     for k,v in mapping.items():
-      node_output_ordered[v].add(k)
+        node_output_ordered[v].add(k)
     
     for i, index in enumerate(int_output):
         node_output_topo[i] = node_output_ordered[index]
@@ -386,6 +386,9 @@ def main():
     # result_2_prime = aequitas(example_2_prime, 0.8, 1)
     # print("Example 2_prime: ", result_2_prime)
 
+    # The following test case contains cycles(Strongly-Connected-Components)
+    # and the expected output is {'a', 'e', 'c', 'b'} -> {'d'}
+    # which means the Aequitas treats {'a', 'e', 'c', 'b'} as being of the same order, and this set is ordered in front of 'd'
     example_3 = {
         1: ["b", "c", "e", "a", "d"],
         2: ["b", "c", "e", "a", "d"],
