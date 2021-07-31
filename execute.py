@@ -18,22 +18,24 @@ def get_percent_difference(current, previous):
             return 100.0
         return diff
     except ZeroDivisionError:
-        return 0.0
+        return 100
 
 def get_sequence_difference(txs, tag1, tag2):
     differences = []
     for tx in txs:
        if len(tx.metrics) > 0 and tag1 in tx.metrics and tag2 in tx.metrics:
             print(tx.metrics)
-            differences.append(get_percent_difference(tx.metrics[tag1], tx.metrics[tag2]))
+            diff = get_percent_difference(tx.metrics[tag1], tx.metrics[tag2])
+            if diff != -1:
+                differences.append(diff)
     return differences
 
 def LimitedRandDoubles(lim):
     return np.random.uniform(low=0,high=lim,size=(1, 1000000))
 
 
-rand_timing_doubles = LimitedRandDoubles(30.0)
-rand_network_doubles = LimitedRandDoubles(15.0)
+rand_timing_doubles = LimitedRandDoubles(30)
+rand_network_doubles = LimitedRandDoubles(10.0)
 last_timing_double = 0
 last_network_double = 0
 
@@ -55,10 +57,14 @@ def process_example_uniswap_transactions(data_file, order_function):
 
     # Very messy parser of transactions in plaintext into objects
     transactions = []
+    num_tx = 500
+    curr_num = 0
     nodes_seen = {}
-    for transaction in open(data_file).read().splitlines():
+    for transaction in open(data_file).read().splitlines()[0:]:
         transaction = transaction.split()
         tx = None
+        if curr_num >= num_tx:
+            break
         if '//' in transaction:
             # comment
             continue
@@ -83,9 +89,10 @@ def process_example_uniswap_transactions(data_file, order_function):
                 tx = RemoveLiquidityTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee)
         if tx is not None:
             transactions.append(tx)
+            curr_num += 1
 
-
-    transactions = transactions[:500]
+    assert(len(transactions) >= num_tx)
+    # transactions = transactions[:100]
 
     # simulate timing data
     curr_time = 0.0
@@ -111,12 +118,39 @@ def process_example_uniswap_transactions(data_file, order_function):
 
 
     differences = {}
+
     for node in nodes_seen:
         differences[node] = get_sequence_difference(transactions, "baseline", node)
-
     plt.hist(differences.values(), alpha=0.5, bins=20)
     plt.yscale('log')
     plt.show()
+
+
+    max_differences = {}
+    curr_max_diff = 0
+    for i in range(1):
+        # Leader maliciously shuffling
+        for node in nodes_seen:
+            seq = [x[0] for x in nodes_seen[node]]
+            random.shuffle(seq)
+            node_order_sequence = TransactionSequence(seq)
+            node_order = node_order_sequence.get_output_with_tagged_metrics(node)
+
+        differences = {}
+
+        for node in nodes_seen:
+            differences[node] = get_sequence_difference(transactions, "baseline", node)
+        max_diff = sum([sum(val > 95 for val in differences[node]) for node in nodes_seen])
+        
+        if max_diff >= curr_max_diff:
+            max_differences = differences
+            curr_max_diff = max_diff
+
+   
+    plt.hist(max_differences.values(), alpha=0.5, bins=20)
+    plt.yscale('log')
+    plt.show()
+
 
     # set up input for causal order (same as aequitas)
     for node in nodes_seen:
@@ -136,14 +170,18 @@ def process_example_uniswap_transactions(data_file, order_function):
     aequitas_order = aequitas(nodes_seen, 1, 1)
     print(aequitas_order)
     final_order = []
+    print("MAXIMUM", max([len(output_set) for output_set in aequitas_order]))
     for output_set in aequitas_order:
-        final_order += [tx_mapping[x] for x in output_set]
+        y = [tx_mapping[x] for x in output_set]
+        # random.shuffle(y)
+        final_order += y
     output = TransactionSequence(final_order).get_output_with_tagged_metrics('aequitas')
     difference_aequitas = get_sequence_difference(transactions, "baseline", "aequitas")
 
     plt.hist(difference_aequitas, alpha=0.5, bins=20)
     plt.yscale('log')
     plt.show()
+    print("MAXIMUM", max([len(output_set) for output_set in aequitas_order]))
 
 if __name__ == '__main__':
     process_example_uniswap_transactions('data/0x05f04f112a286c4c551897fb19ed2300272656c8.csv', same_order)
