@@ -6,23 +6,31 @@ import matplotlib.pyplot as plt
 from ordering import *
 from aequitas import *
 
-def get_change(current, previous):
+def get_percent_difference(current, previous):
     if current == previous:
         return 0.0
     try:
         diff = (abs(current - previous) / previous) * 100.0
-        if diff > 10.0:
-            return 10.0
+        if diff > 100.0:
+            return 100.0
         return diff
     except ZeroDivisionError:
         return 0.0
+
+def get_sequence_difference(txs, tag1, tag2):
+    differences = []
+    for tx in txs:
+       if len(tx.metrics) > 0 and tag1 in tx.metrics and tag2 in tx.metrics:
+            print(tx.metrics)
+            differences.append(get_percent_difference(tx.metrics[tag1], tx.metrics[tag2]))
+    return differences
 
 def LimitedRandDoubles(lim):
     return np.random.uniform(low=0,high=lim,size=(1, 1000000))
 
 
-rand_timing_doubles = LimitedRandDoubles(5.0)
-rand_network_doubles = LimitedRandDoubles(10.0)
+rand_timing_doubles = LimitedRandDoubles(30.0)
+rand_network_doubles = LimitedRandDoubles(15.0)
 last_timing_double = 0
 last_network_double = 0
 
@@ -100,28 +108,34 @@ def process_example_uniswap_transactions(data_file, order_function):
 
 
     differences = {}
-    for tx in transactions:
-        if len(tx.metrics) > 0:
-            for node in nodes_seen:
-                if not node in differences:
-                    differences[node] = []
-                differences[node].append(get_change(tx.metrics['baseline'], tx.metrics[node]))
-    #plt.hist(differences.values(), alpha=0.5, bins=20)
-    #plt.yscale('log')
-    #plt.show()
+    for node in nodes_seen:
+        differences[node] = get_sequence_difference(transactions, "baseline", node)
+
+    plt.hist(differences.values(), alpha=0.5, bins=20)
+    plt.yscale('log')
+    plt.show()
 
     # set up input for causal order (same as aequitas)
     for node in nodes_seen:
         nodes_seen[node] = [Tx(x[0], x[1]) for x in nodes_seen[node]]
     causal_order = CausalOrdering()
     causal_order = causal_order.order(nodes_seen)
-    print(causal_order)
+    #print(causal_order)
     output = TransactionSequence(causal_order).get_output_with_tagged_metrics('causal')
+    difference_causal = get_sequence_difference(transactions, "baseline", "causal")
 
+    plt.hist(difference_causal, alpha=0.5, bins=20)
+    plt.yscale('log')
+    plt.show()
 
     aequitas_order = aequitas(nodes_seen, 1, 1)
     print(aequitas_order)
-    output = TransactionSequence(causal_order).get_output_with_tagged_metrics('aequitas')
+    output = TransactionSequence(aequitas_order).get_output_with_tagged_metrics('aequitas')
+    difference_aequitas = get_sequence_difference(transactions, "baseline", "aequitas")
+
+    plt.hist(difference_aequitas, alpha=0.5, bins=20)
+    plt.yscale('log')
+    plt.show()
 
 if __name__ == '__main__':
     process_example_uniswap_transactions('data/0x05f04f112a286c4c551897fb19ed2300272656c8.csv', same_order)
