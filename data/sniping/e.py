@@ -1,16 +1,20 @@
 import csv
 
-with open('fei.csv') as csv_file:
+def tt (a):
+    return int(a, 16)
+
+with open('onlytribe.csv') as csv_file:
     csv_reader = csv.reader(csv_file, delimiter=',')
     line_count = 0
     for row in csv_reader:
-        if line_count == 0:
-            print(f'Column names are {", ".join(row)}')
-            line_count += 1
-        else:
-            print(f'// transaction {row[0]} block {row[1]}\n {row[2]} swaps for {row[3]} by providing {row[4]} {row[5]} and {row[6]} {row[7]} with a change 0 fee {row[8]} ;')
-            line_count += 1
-    print(f'Processed {line_count} lines.')
+        # if {row[3]} == '\\xc7283b66eb1eb5fb86327f08e1b5816b0720212b'
+        # print(type(row[2]))
+        # print(type('0xef764bac8a438e7e498c2e5fccf0f174c3e3f8db'))
+        # assert(row[2] != '0xef764bac8a438e7e498c2e5fccf0f174c3e3f8db')
+        # print(int(row[2], 16))
+        print(f'// transaction {row[0]} block {row[1]}\n {tt(row[2])} swaps for {tt(row[3])} by providing {row[4]} {tt(row[5])} and {row[6]} {tt(row[7])} with a change 0 fee {row[8]} ;')
+        line_count += 1
+    # print(f'Processed {line_count} lines.')
 
 
 
