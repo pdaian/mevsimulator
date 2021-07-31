@@ -278,7 +278,9 @@ def finalize_output(H: nx.DiGraph, no_edge_dict: Dict) -> List:
     print("\n============== Aequitas: finalize_output ==============")
     print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
+    SCC =nx.strongly_connected_components(H)
     mapping =  condensed_DAG.graph['mapping']
+    print("SCC: ", SCC)
     print("mapping: ", mapping)
     print("condensed_DAG: ", condensed_DAG.edges)
 
@@ -296,12 +298,14 @@ def finalize_output(H: nx.DiGraph, no_edge_dict: Dict) -> List:
     print("removed_DAG: ", removed_DAG.edges)
     int_output = list(nx.topological_sort(removed_DAG))
     print("int_output: ", int_output)
-    node_output = [None]*len(int_output)
+    node_output_ordered = [set() for _ in range(len(int_output))]
+    node_output_topo = [set() for _ in range(len(int_output))]
     for k,v in mapping.items():
-      if v in int_output:
-        node_output[int_output.index(v)]=k
-    print("node_output: ", node_output)
-    return node_output
+      node_output_ordered[v].add(k)
+    
+    for i, index in enumerate(int_output):
+        node_output_topo[i] = node_output_ordered[index]
+    return node_output_topo
 # Final output ordering of Example 2: [a,b,c]
 
 def prettyprint(d, indent=0):
