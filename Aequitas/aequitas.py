@@ -42,6 +42,24 @@ def get_all_tx_in_batch(tx_list: Dict[int, Tx]) -> Dict[int, Tx]:
     # TODO
     return
 
+def get_empty_edges(H: nx.DiGraph) -> List:
+    # used undirected edges for easier computing
+    empty_edges = []
+    edge_candidates = sorted(list(itertools.permutations(H.nodes, 2)), key=lambda x: (x[0], x[1]))
+    unsorted_edges = H.edges
+    sorted_edges = sorted(unsorted_edges, key=lambda x: (x[0], x[1]))
+    value = list(set(edge_candidates) - set(sorted_edges))
+    for x, y in value:
+        if (y,x) in empty_edges:
+            continue
+        if (y,x) in value:
+            empty_edges.append((x,y))
+    print("empty_edges", empty_edges)
+    return empty_edges
+
+def GetMaxLengthValue(d):
+    maks=max(d, key=lambda k: len(d[k]))
+    return len(d[maks])
 
 def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.DiGraph, Dict]:
     """
@@ -56,6 +74,10 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     
     n = len(tx_dict)
     print("n = %s, gamma = %s, f = %s" % (n, gamma, f))
+    if gamma <=1/2 or gamma >1:
+        print("gamma = %s" % gamma)
+        sys.exit("Order-Fairness Parameter Out of Bounds, Exit")
+
     if not (n > 2 * f/(2 * gamma - 1)):
         print("2 * f/(2 * gamma - 1) = %s" %(2 * f/(2 * gamma - 1)))
         sys.exit("Corruption Bound Check Failed, Exit")
@@ -67,6 +89,8 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
                 nodes.add(tx)
     nodes = sorted(nodes)
     print("nodes:", nodes)
+    longest_ordering = GetMaxLengthValue(tx_dict)
+    print("longest_ordering: ", longest_ordering)
     m = len(nodes)
 
     tx_list = list(tx_dict.values())
@@ -81,7 +105,10 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     for i in nodes:
         idx = []
         for row in tx_list:
-            idx.append(row.index(i))
+            if i in row:
+                idx.append(row.index(i))
+            else:
+                idx.append(99999) # Hacky: if we can't find this tx, assume it has an extremely large index(i.e. arrive late eventually)
         indices[i] = np.array(idx)
     print("indices:")
     pp.pprint(indices)
@@ -89,37 +116,53 @@ def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.
     # Compute the differences between all pairs of txs, a negative value in this matrix means key[0] is in front of key[1]
     pairs_dict = {}
     for key in edge_candidates:
-        pairs_dict[key] = indices[key[0]] - indices[key[1]]
+        lst = np.array(indices[key[0]] - indices[key[1]])
+        # print("debugging: list before", lst)
+        lst[lst < -9999] = 0            # Hacky
+        lst[lst > 9999] = 0             # Hacky
+        # print("debugging: list after", lst)
+        pairs_dict[key] = lst
     print("pairs_dict:")
     pp.pprint(pairs_dict)
 
     # Count number of negative elements
-    counting_dict = {}
+    counting_dict_neg = {}
+    counting_dict_pos = {}
     for key in pairs_dict:
-        counting_dict[key] = np.sum(np.array((pairs_dict[key])) < 0, axis=0)
-    print("counting_dict:")
-    pp.pprint(counting_dict)
+        counting_dict_neg[key] = np.sum(np.array((pairs_dict[key])) < 0, axis=0)
+        counting_dict_pos[key] = np.sum(np.array((pairs_dict[key])) > 0, axis=0)
+    print("counting_dict_neg:")
+    pp.pprint(counting_dict_neg)
+
+    print("counting_dict_pos:")
+    pp.pprint(counting_dict_pos)
 
     # Filter using gamma - the fairness parameter as the thereshold
     edge_dict = {}
-    no_edge_dict = {}
     
-    for i in counting_dict:
-        if counting_dict[i] >= n * gamma - f:
-            edge_dict[i] = counting_dict[i]
-        else:
-            no_edge_dict[i] = counting_dict[i]
-    print("no_edge_dict:")
-    pp.pprint(no_edge_dict)
+    for i in counting_dict_neg:
+        if counting_dict_neg[i] >= n * gamma - f:
+            print("neg adding " , i)
+            edge_dict[i] = counting_dict_neg[i]
+
+    for j in counting_dict_pos:
+        print("j", j)
+        i = j[::-1]
+        if counting_dict_pos[j] >= n * gamma - f:
+            print("pos adding " , i)
+            edge_dict[i] = counting_dict_pos[j]
+
     print("edge_dict: ")
     pp.pprint(edge_dict)
-    assert len(edge_dict) + len(no_edge_dict) == (m ** 2 - m) / 2
 
     # Add edges to the graph
     G = nx.DiGraph()
     for i in edge_dict:
         G.add_edge(str(i[0]), str(i[1]))
     print("G.graph: ", G.edges)
+
+    no_edge_dict = get_empty_edges(G)
+
     return G, no_edge_dict
 # returns a graph, and the empty edges
 
@@ -187,20 +230,7 @@ def complete_list_of_edges(H: nx.DiGraph, no_edge_dict: Dict) -> nx.DiGraph:
     # assert (len(H.edges)==(n**2-n)/2), "H is NOT a fully connected graph"
     return H
 
-def get_empty_edges(H: nx.DiGraph) -> List:
-    # used undirected edges for easier computing
-    empty_edges = []
-    edge_candidates = sorted(list(itertools.permutations(H.nodes, 2)), key=lambda x: (x[0], x[1]))
-    unsorted_edges = H.edges
-    sorted_edges = sorted(unsorted_edges, key=lambda x: (x[0], x[1]))
-    value = list(set(edge_candidates) - set(sorted_edges))
-    for x, y in value:
-        if (y,x) in empty_edges:
-            continue
-        if (y,x) in value:
-            empty_edges.append((x,y))
-    print("empty_edges", empty_edges)
-    return empty_edges
+
 
 # TODO: e.g. in Example 2: remove d(0) and (1)
 def prune(H: nx.DiGraph):
@@ -228,10 +258,10 @@ def prune(H: nx.DiGraph):
                 if len(common_descendants) == 0 : # is empty, x, y has no common descendants
                     if(x in H.nodes): 
                         H.remove_node(x)
-                        print("Pruned vertex %s successfully", x)
+                        print("Pruned vertex %s successfully"% x)
                     if(y in H.nodes): 
                         H.remove_node(y)
-                        print("Pruned vertex %s successfully", y)
+                        print("Pruned vertex %s successfully"% y)
 
 
     print("****** after pruning ****** : ", H.edges)
@@ -248,7 +278,9 @@ def finalize_output(H: nx.DiGraph, no_edge_dict: Dict) -> List:
     print("\n============== Aequitas: finalize_output ==============")
     print("H.graph: ", H.edges)
     condensed_DAG = nx.condensation(H)
+    SCC =nx.strongly_connected_components(H)
     mapping =  condensed_DAG.graph['mapping']
+    print("SCC: ", SCC)
     print("mapping: ", mapping)
     print("condensed_DAG: ", condensed_DAG.edges)
 
@@ -266,12 +298,14 @@ def finalize_output(H: nx.DiGraph, no_edge_dict: Dict) -> List:
     print("removed_DAG: ", removed_DAG.edges)
     int_output = list(nx.topological_sort(removed_DAG))
     print("int_output: ", int_output)
-    node_output = [None]*len(int_output)
+    node_output_ordered = [set() for _ in range(len(mapping.keys()))]
+    node_output_topo = [set() for _ in range(len(int_output))]
     for k,v in mapping.items():
-      if v in int_output:
-        node_output[int_output.index(v)]=k
-    print("node_output: ", node_output)
-    return node_output
+        node_output_ordered[v].add(k)
+    
+    for i, index in enumerate(int_output):
+        node_output_topo[i] = node_output_ordered[index]
+    return node_output_topo
 # Final output ordering of Example 2: [a,b,c]
 
 def prettyprint(d, indent=0):
@@ -324,15 +358,23 @@ def main():
 
     # TODO: Some data processing and cleaning to get the following simplified tx_dict for the 0th bucket/epoch/batch to be processed
 
-    example_2 = {
-        1: ["a", "b", "c", "e", "d"],
-        2: ["a", "c", "b", "d", "e"],
-        3: ["b", "a", "c", "e", "d"],
-        4: ["a", "b", "d", "c", "e"],
-        5: ["a", "c", "b", "d", "e"],
-    }
-    result_2 = aequitas(example_2, 1, 1)
-    print("Example 2: ", result_2)
+    # example_1 = {
+    #     1: ["a", "b", "c", "d", "e"],
+    #     2: ["a", "b", "c", "e", "d"],
+    #     3: ["a", "b", "c", "d", "e"],
+    # }
+    # result_1 = aequitas(example_1, 1, 1)
+    # print("Example 1: ", result_1)
+
+    # example_2 = {
+    #     1: ["a", "b", "c", "e", "d"],
+    #     2: ["a", "c", "b", "d", "e"],
+    #     3: ["b", "a", "c", "e", "d"],
+    #     4: ["a", "b", "d", "c", "e"],
+    #     5: ["a", "c", "b", "d", "e"],
+    # }
+    # result_2 = aequitas(example_2, 1, 1)
+    # print("Example 2: ", result_2)
 
     # example_2_prime = {
     #     1: ["a", "b", "c", "e", "d"],
@@ -344,23 +386,19 @@ def main():
     # result_2_prime = aequitas(example_2_prime, 0.8, 1)
     # print("Example 2_prime: ", result_2_prime)
 
-    # example_3 = {
-    #     1: ["b", "c", "e", "a", "d"],
-    #     2: ["b", "c", "e", "a", "d"],
-    #     3: ["a", "c", "b", "d", "e"],
-    #     4: ["a", "c", "b", "d", "e"],
-    #     5: ["e", "a", "b", "c", "d"],
-    # }
-    # result_3 = aequitas(example_3, 0.8, 1)
-    # print("Example 3: ", result_3)
+    # The following test case contains cycles(Strongly-Connected-Components)
+    # and the expected output is {'a', 'e', 'c', 'b'} -> {'d'}
+    # which means the Aequitas treats {'a', 'e', 'c', 'b'} as being of the same order, and this set is ordered in front of 'd'
+    example_3 = {
+        1: ["b", "c", "e", "a", "d"],
+        2: ["b", "c", "e", "a", "d"],
+        3: ["a", "c", "b", "d", "e"],
+        4: ["a", "c", "b", "d", "e"],
+        5: ["e", "a", "b", "c", "d"],
+    }
+    result_3 = aequitas(example_3, 0.8, 1)
+    print("Example 3: ", result_3)
 
-    # example_1 = {
-    #     1: ["a", "b", "c", "d", "e"],
-    #     2: ["a", "b", "c", "e", "d"],
-    #     3: ["a", "b", "c", "d", "e"],
-    # }
-    # result_1 = aequitas(example_1, 1, 1)
-    # print("Example 1: ", result_1)
 
     # # The following test case SHOULD FAIL, due to corruption bound checks
     # example_4 = {
@@ -371,7 +409,7 @@ def main():
     # result_4 = aequitas(example_4, 0.8, 1)
     # print("Example 4: ", result_4)
 
-    # The following test case SHOULD FAIL, due to missing d
+    # # The following test case SHOULD FAIL, due to missing d
     # example_5 = {
     #     1: ["a", "b", "c", "e", "d"],
     #     2: ["a", "b", "c", "e", "e"],
@@ -402,7 +440,6 @@ def main():
     # result_7 = aequitas(example_7, 2.0, 1)
     # print("Example 7: ", result_7)
     
-    # # Expected Result ["a","b","c","d","e"]
     # example_8 = {
     #     1: ["a", "b", "c", "e", "d"],
     #     2: ["a", "b", "c", "d", "e"],
@@ -413,69 +450,5 @@ def main():
     # result_8 = aequitas(example_8, 0.0, 1)
     # print("Example 8: ", result_8)
 
-    # #  Expected Result ["a","b","c","d","e"]
-    # example_9 = {
-    #     1: ["a", "b", "c", "e", "d"],
-    #     2: ["a", "b", "c", "d", "e"],
-    #     3: ["a", "b", "c", "d", "e"],
-    #     4: ["a", "b", "c", "d", "e"],
-    #     5: ["a", "b", "c", "d", "e"],
-    # }
-    # result_9 = aequitas(example_9, 0.0, 0)
-    # print("Example 9: ", result_9)
-
 if __name__ == "__main__":
     main()
-
-
-## TESTS
-# // Example 1 : simple
-# Node 1: [a,b,c,d,e]
-# Node 2: [a,b,c,e,d]
-# Node 3: [a,b,c,d,e]
-
-# (a->b), (a->c), (a->d), (a->e)
-#         (b->c), (b->d), (b->e)
-#                 (c->d), (c->e)
-#                         (d->e)
-# // simple scenario, the graph is complete
-# Final output ordering: a->b->c->d->e
-
-# // Example 2: common descendant, and no common descendant
-# Node 1: [a,b,c,e,d]
-# Node 2: [a,c,b,d,e]
-# Node 3: [b,a,c,e,d]
-# Node 4: [a,b,d,c,e]
-# Node 5: [a,c,b,d,e]
-
-# gamma = 4/5 (to add an edge, you need x<y in 4 nodes)
-
-# (a->b), (a->c), (a->d), (a->e)
-#                 (b->d), (b->e)
-#                 (c->d), (c->e)
-
-# // b and c dont have an edge but they have a common descendant: e
-# // Lets say, we add (b,c) as the edge deterministically
-# // d and e dont have an edge but they dont have a common descendant either, i.e. they wont be output yet
-# Final output ordering: :a->b->c
-
-# // Example 3: have cycles, look at condensation graph
-# Node 1: [b,c,e,a,d]
-# Node 2: [b,c,e,a,d]
-# Node 3: [a,c,b,d,e]
-# Node 4: [a,c,b,d,e]
-# Node 5: [e,a,b,c,d]
-
-# gamma = 3/5 (to add an edge, you need x<y in 3 nodes)
-
-# (a->b), (a->c), (a->d),
-#         (b->c), (b->d), (b->e)
-#                 (c->d), (c->e)
-#                                (e->a)
-
-# // The graph contains two cycles: a,b,e and a,c,e
-# // [a,b,c,e] is the strongly connected component(SCC), they are assumed to be output at the same time
-# // we leave the specification up to the implementation (because we don’t consider unfairness within such an SCC)
-# Final output ordering:  [a,b,c,e] -> d
-
-
