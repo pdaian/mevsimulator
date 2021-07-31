@@ -3,6 +3,7 @@ from sequence import *
 from util import *
 import numpy as np
 import matplotlib.pyplot as plt
+from ordering import *
 
 def get_change(current, previous):
     if current == previous:
@@ -72,6 +73,8 @@ def process_example_uniswap_transactions(data_file, order_function):
             transactions.append(tx)
 
 
+    transactions = transactions[:100]
+
     # simulate timing data
     curr_time = 0.0
     for tx in transactions:
@@ -102,9 +105,18 @@ def process_example_uniswap_transactions(data_file, order_function):
                 if not node in differences:
                     differences[node] = []
                 differences[node].append(get_change(tx.metrics['baseline'], tx.metrics[node]))
-    plt.hist(differences.values(), alpha=0.5, bins=20)
-    plt.yscale('log')
-    plt.show()
+    #plt.hist(differences.values(), alpha=0.5, bins=20)
+    #plt.yscale('log')
+    #plt.show()
+
+    # set up input for causal order (same as aequitas)
+    for node in nodes_seen:
+        nodes_seen[node] = [Tx(x[0], x[1]) for x in nodes_seen[node]]
+    causal_order = CausalOrdering()
+    order = causal_order.order(nodes_seen)
+    print(order)
+    output = TransactionSequence(order).get_output_with_tagged_metrics('causal')
+
 
 if __name__ == '__main__':
     process_example_uniswap_transactions('data/0x05f04f112a286c4c551897fb19ed2300272656c8.csv', same_order)
