@@ -33,8 +33,9 @@ def granularize(tx_ordering, starting_timestamp: int, granularity: int) -> List[
     All transactions with timestamps [0,g-1] are in the same bucket, [g, 2g-1] are in the same bucket etc.
     """
     for tx in tx_ordering:
-        quotient = int((tx.timestamp - starting_timestamp) // granularity)
-        tx.bucket = quotient
+        if hasattr(tx, 'timestamp'):
+            quotient = int((tx.timestamp - starting_timestamp) // granularity)
+            tx.bucket = quotient
     return tx_ordering
 
 
@@ -61,7 +62,7 @@ def GetMaxLengthValue(d):
     maks=max(d, key=lambda k: len(d[k]))
     return len(d[maks])
 
-def compute_initial_set_of_edges(tx_dict: Dict, gamma: int, f: int) -> Tuple[nx.DiGraph, Dict]:
+def compute_initial_set_of_edges(tx_dict: Dict, gamma, f: int) -> Tuple[nx.DiGraph, Dict]:
     """
     line 15-25
 
@@ -317,7 +318,11 @@ def prettyprint(d, indent=0):
          print('\t' * (indent+1) + str(value))
 
 # Calling aequitas once means processing this bucket/epoch/batch of Txs according to Aequitas ordering
-def aequitas(tx_dict: Dict, gamma: int, f: int):
+def aequitas(tx_dict: Dict, gamma, f: int):
+    # new_tx_dict = {}
+    # for node in tx_dict:
+    #     new_tx_dict[node] = (granularize(tx_dict[node], 0, 30))
+
     (G, no_edge_dict) = compute_initial_set_of_edges(tx_dict, gamma, f)
     H = complete_list_of_edges(G, no_edge_dict)
     Out = finalize_output(H, no_edge_dict)
