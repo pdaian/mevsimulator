@@ -1,0 +1,32 @@
+WITH tradeinfo AS (SELECT *
+-- tx_hash, "token_b_address", 
+-- "token_a_amount_raw", "token_a_address", "token_b_amount_raw", "token_b_address" 
+From dex.trades
+Where block_time > '2021-04-03 06:59 UTC'
+And block_time < '2021-04-04 06:59 UTC'
+And ("token_a_address" = '\xc7283b66eb1eb5fb86327f08e1b5816b0720212b'
+Or "token_b_address" = '\xc7283b66eb1eb5fb86327f08e1b5816b0720212b'
+Or "token_a_address" = '\x956F47F50A910163D8BF957Cf5846D573E7f87CA'
+Or "token_b_address" = '\x956F47F50A910163D8BF957Cf5846D573E7f87CA')
+-- buying or selling TRIBE
+And "project" = 'Uniswap'
+Order By "block_time")
+
+Select hash, block_number, "from", tradeinfo."token_b_address", tradeinfo."token_a_amount_raw",
+tradeinfo."token_a_address", tradeinfo."token_b_amount_raw", tradeinfo."token_b_address",
+gas_used * gas_price As fee from ethereum.transactions
+Join 
+tradeinfo On ethereum.transactions.hash = tradeinfo.tx_hash
+-- And success = True
+
+
+
+-- FEI
+-- \x956f47f50a910163d8bf957cf5846d573e7f87ca
+-- TRIBE
+-- \xc7283b66eb1eb5fb86327f08e1b5816b0720212b
+
+-- Select * from ethereum.transactions
+-- Where "hash" = '\x641b95d1f76a4a9e0101df94aab04aee23f95bca349fb6a68d79b180cf84e533'
+-- And block_time = "2021-04-03 19:08"
+-- one block = 15 sec, so 10 mins = 40 blocks
