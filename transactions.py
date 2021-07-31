@@ -3,6 +3,7 @@ class Transaction:
     def __init__(self, sender, fee):
         self.sender = sender
         self.fee = fee
+        self.metrics = {}
 
 
 class UniswapTransaction(Transaction):
@@ -34,13 +35,15 @@ class SwapTransaction(UniswapTransaction):
         elif self.x_amount == 0:
             # swap for x token
             amountX = self._swapquote(self.y_amount,state.y, state.x)
-            state.x -= amountX
+            state.x -= amountX # we use price as the relevant metric
             state.y += self.y_amount
+            return amountX
         elif self.y_amount == 0:
             # swap for y token
             amountY = self._swapquote(self.x_amount,state.x, state.y)
             state.y -= amountY
             state.x += self.x_amount
+            return amountY # we use price as the relevant metric
 
 class AddLiquidityTransaction(UniswapTransaction):
 

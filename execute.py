@@ -2,16 +2,25 @@ from transactions import *
 from sequence import *
 from util import *
 import numpy as np
+import matplotlib.pyplot as plt
 
-
-
+def get_change(current, previous):
+    if current == previous:
+        return 0.0
+    try:
+        diff = (abs(current - previous) / previous) * 100.0
+        if diff > 10.0:
+            return 10.0
+        return diff
+    except ZeroDivisionError:
+        return 0.0
 
 def LimitedRandDoubles(lim):
     return np.random.uniform(low=0,high=lim,size=(1, 1000000))
 
 
-rand_timing_doubles = LimitedRandDoubles(30.0)
-rand_network_doubles = LimitedRandDoubles(15.0)
+rand_timing_doubles = LimitedRandDoubles(5.0)
+rand_network_doubles = LimitedRandDoubles(10.0)
 last_timing_double = 0
 last_network_double = 0
 
@@ -79,8 +88,23 @@ def process_example_uniswap_transactions(data_file, order_function):
 
     transactions = order_function(transactions)
     print("Transactions", transactions)
-    sequence = TransactionSequence(transactions)
-    return sequence.get_output()
+    baseline_sequence = TransactionSequence(transactions)
+    baseline_sequence = baseline_sequence.get_output_with_tagged_metrics("baseline")
+    for node in nodes_seen:
+        node_order_sequence = TransactionSequence([x[0] for x in nodes_seen[node]])
+        node_order = node_order_sequence.get_output_with_tagged_metrics(node)
+
+
+    differences = {}
+    for tx in transactions:
+        if len(tx.metrics) > 0:
+            for node in nodes_seen:
+                if not node in differences:
+                    differences[node] = []
+                differences[node].append(get_change(tx.metrics['baseline'], tx.metrics[node]))
+    plt.hist(differences.values(), alpha=0.5, bins=20)
+    plt.yscale('log')
+    plt.show()
 
 if __name__ == '__main__':
     process_example_uniswap_transactions('data/0x05f04f112a286c4c551897fb19ed2300272656c8.csv', same_order)
