@@ -4,6 +4,7 @@ from util import *
 import numpy as np
 import matplotlib.pyplot as plt
 from ordering import *
+from aequitas import *
 
 def get_change(current, previous):
     if current == previous:
@@ -113,10 +114,14 @@ def process_example_uniswap_transactions(data_file, order_function):
     for node in nodes_seen:
         nodes_seen[node] = [Tx(x[0], x[1]) for x in nodes_seen[node]]
     causal_order = CausalOrdering()
-    order = causal_order.order(nodes_seen)
-    print(order)
-    output = TransactionSequence(order).get_output_with_tagged_metrics('causal')
+    causal_order = causal_order.order(nodes_seen)
+    print(causal_order)
+    output = TransactionSequence(causal_order).get_output_with_tagged_metrics('causal')
 
+
+    aequitas_order = aequitas(nodes_seen, 1, 1)
+    print(aequitas_order)
+    output = TransactionSequence(causal_order).get_output_with_tagged_metrics('aequitas')
 
 if __name__ == '__main__':
     process_example_uniswap_transactions('data/0x05f04f112a286c4c551897fb19ed2300272656c8.csv', same_order)
