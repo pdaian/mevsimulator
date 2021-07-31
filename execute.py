@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from ordering import *
 from aequitas import *
 
+
+tx_mapping = {}
+
 def get_percent_difference(current, previous):
     if current == previous:
         return 0.0
@@ -82,7 +85,7 @@ def process_example_uniswap_transactions(data_file, order_function):
             transactions.append(tx)
 
 
-    transactions = transactions[:100]
+    transactions = transactions[:500]
 
     # simulate timing data
     curr_time = 0.0
@@ -128,9 +131,14 @@ def process_example_uniswap_transactions(data_file, order_function):
     plt.yscale('log')
     plt.show()
 
+    for tx in transactions:
+        tx_mapping[str(tx)] = tx
     aequitas_order = aequitas(nodes_seen, 1, 1)
     print(aequitas_order)
-    output = TransactionSequence(aequitas_order).get_output_with_tagged_metrics('aequitas')
+    final_order = []
+    for output_set in aequitas_order:
+        final_order += [tx_mapping[x] for x in output_set]
+    output = TransactionSequence(final_order).get_output_with_tagged_metrics('aequitas')
     difference_aequitas = get_sequence_difference(transactions, "baseline", "aequitas")
 
     plt.hist(difference_aequitas, alpha=0.5, bins=20)
