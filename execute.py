@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ordering import *
 from aequitas import *
-
+import copy
 
 tx_mapping = {}
 
@@ -35,7 +35,7 @@ def LimitedRandDoubles(lim):
 
 
 rand_timing_doubles = LimitedRandDoubles(30)
-rand_network_doubles = LimitedRandDoubles(10.0)
+rand_network_doubles = LimitedRandDoubles(10)
 last_timing_double = 0
 last_network_double = 0
 
@@ -57,7 +57,7 @@ def process_example_uniswap_transactions(data_file, order_function):
 
     # Very messy parser of transactions in plaintext into objects
     transactions = []
-    num_tx = 500
+    num_tx = 200
     curr_num = 0
     nodes_seen = {}
     for transaction in open(data_file).read().splitlines()[0:]:
@@ -67,13 +67,15 @@ def process_example_uniswap_transactions(data_file, order_function):
             break
         if '//' in transaction:
             # comment
+            next_tx_id = transaction[2]
+            next_tx_block = transaction[4]
             continue
         elif 'swaps' in transaction:
             tokens = sorted([[int(transaction[7]), int(transaction[6])], [int(transaction[10]), int(transaction[9])]])
             fee = 0
             if len(transaction) == 17:
                 fee = int(transaction[15])
-            tx = SwapTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee)
+            tx = SwapTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee, next_tx_id, next_tx_block)
         elif 'liquidity;' in transaction:
             print("first_token, second_token, first_amount, second_amount, sender, fee")
             print(transaction)
@@ -84,9 +86,9 @@ def process_example_uniswap_transactions(data_file, order_function):
             #if len(transaction) == 17:
             #    fee = int(transaction[15])
             if 'adds' in transaction:
-                tx = AddLiquidityTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee)
+                tx = AddLiquidityTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee, next_tx_id, next_tx_block)
             elif 'removes' in transaction:
-                tx = RemoveLiquidityTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee)
+                tx = RemoveLiquidityTransaction(tokens[0][0], tokens[1][0], tokens[0][1], tokens[1][1], int(transaction[0]), fee, next_tx_id, next_tx_block)
         if tx is not None:
             transactions.append(tx)
             curr_num += 1
@@ -106,12 +108,13 @@ def process_example_uniswap_transactions(data_file, order_function):
             nodes_seen[node].append((tx, tx.time_sent + get_network_delay()))
     for node in range(0, 5):
         nodes_seen[node] = sorted(nodes_seen[node], key = lambda x : x[1])
-    print(nodes_seen)
+    print(nodes_seen[0])
 
     transactions = order_function(transactions)
     print("Transactions", transactions)
     baseline_sequence = TransactionSequence(transactions)
     baseline_sequence = baseline_sequence.get_output_with_tagged_metrics("baseline")
+
     for node in nodes_seen:
         node_order_sequence = TransactionSequence([x[0] for x in nodes_seen[node]])
         node_order = node_order_sequence.get_output_with_tagged_metrics(node)
@@ -151,37 +154,41 @@ def process_example_uniswap_transactions(data_file, order_function):
     plt.yscale('log')
     plt.show()
 
+    print(nodes_seen[0])
 
     # set up input for causal order (same as aequitas)
     for node in nodes_seen:
         nodes_seen[node] = [Tx(x[0], x[1]) for x in nodes_seen[node]]
-    causal_order = CausalOrdering()
-    causal_order = causal_order.order(nodes_seen)
-    #print(causal_order)
-    output = TransactionSequence(causal_order).get_output_with_tagged_metrics('causal')
-    difference_causal = get_sequence_difference(transactions, "baseline", "causal")
 
-    plt.hist(difference_causal, alpha=0.5, bins=20)
-    plt.yscale('log')
-    plt.show()
+    # TODO: Need to fix this part given new tx format
+    # causal_order = CausalOrdering()
+    # causal_order = causal_order.order(copy.deepcopy(nodes_seen))
+    # #print(causal_order)
+    # output = TransactionSequence(causal_order).get_output_with_tagged_metrics('causal')
+    # difference_causal = get_sequence_difference(transactions, "baseline", "causal")
+
+    # plt.hist(difference_causal, alpha=0.5, bins=20)
+    # plt.yscale('log')
+    # plt.show()
 
     for tx in transactions:
         tx_mapping[str(tx)] = tx
-    aequitas_order = aequitas(nodes_seen, 1, 1)
-    print(aequitas_order)
+
+    print(nodes_seen[0])
+    aequitas_order = aequitas(copy.deepcopy(nodes_seen), 1, 1)
     final_order = []
-    print("MAXIMUM", max([len(output_set) for output_set in aequitas_order]))
     for output_set in aequitas_order:
         y = [tx_mapping[x] for x in output_set]
-        # random.shuffle(y)
         final_order += y
+    print(final_order)
+
     output = TransactionSequence(final_order).get_output_with_tagged_metrics('aequitas')
     difference_aequitas = get_sequence_difference(transactions, "baseline", "aequitas")
 
     plt.hist(difference_aequitas, alpha=0.5, bins=20)
     plt.yscale('log')
+    plt.title("Aequitas")
     plt.show()
-    print("MAXIMUM", max([len(output_set) for output_set in aequitas_order]))
 
 if __name__ == '__main__':
     process_example_uniswap_transactions('data/0x05f04f112a286c4c551897fb19ed2300272656c8.csv', same_order)

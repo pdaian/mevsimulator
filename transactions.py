@@ -2,16 +2,18 @@ from functools import total_ordering
 
 class Transaction:
     """ A transaction on the Ethereum network """
-    def __init__(self, sender, fee):
+    def __init__(self, sender, fee,txid="",block=""):
         self.sender = sender
         self.fee = fee
         self.metrics = {}
+        self.txid = txid
+        self.block = block
 
 
 @total_ordering
 class UniswapTransaction(Transaction):
-    def __init__(self, x_token, y_token, x_amount, y_amount, sender, fee):
-        super().__init__(sender, fee)
+    def __init__(self, x_token, y_token, x_amount, y_amount, sender, fee,txid="",block=""):
+        super().__init__(sender, fee,txid,block)
         # tokens involved in transaction
         self.x_token = x_token
         self.y_token = y_token
@@ -34,6 +36,9 @@ class UniswapTransaction(Transaction):
 
     def __hash__(self):
         return hash(str(self))
+
+    def __str__(self):
+     return "".join([str(self.x_token),str(self.y_token), str(self.x_amount), str(self.y_amount), str(self.sender), str(self.fee), str(self.txid),str(self.block)])
 
 class ETHState:
     def __init__(self):

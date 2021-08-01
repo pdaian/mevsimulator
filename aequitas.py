@@ -319,9 +319,14 @@ def prettyprint(d, indent=0):
 
 # Calling aequitas once means processing this bucket/epoch/batch of Txs according to Aequitas ordering
 def aequitas(tx_dict: Dict, gamma, f: int):
-    # new_tx_dict = {}
-    # for node in tx_dict:
-    #     new_tx_dict[node] = (granularize(tx_dict[node], 0, 30))
+
+
+    # Setup
+    for node in tx_dict:
+        # ToDo: any granularization
+        tx_dict[node] = [str(tx.content) for tx in tx_dict[node]]
+
+
 
     (G, no_edge_dict) = compute_initial_set_of_edges(tx_dict, gamma, f)
     H = complete_list_of_edges(G, no_edge_dict)
