@@ -346,7 +346,8 @@ def main():
                 2: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368), Tx("f",1326244369), Tx("g",1326244375)],
                 3: [Tx("b",1326244364), Tx("a",1326244365), Tx("c",1326244366), Tx("e",1326244367), Tx("d",1326244368), Tx("f",1326244376)],
                 4: [Tx("a",1326244364), Tx("b",1326244365), Tx("d",1326244366), Tx("c",1326244367), Tx("e",1326244368)],
-                5: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368)]}
+                5: [Tx("a",1326244364), Tx("c",1326244365), Tx("b",1326244366), Tx("d",1326244367), Tx("e",1326244368)]
+                }
     
     # The function granularize figures txs into buckets/epochs/batches
     granularized_tx_dict = {}
@@ -364,7 +365,8 @@ def main():
         2: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='c', timestamp = 1326244365, bucket = 0), Tx(content ='b', timestamp = 1326244366, bucket = 0), Tx(content ='d', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0), Tx(content ='f', timestamp = 1326244369, bucket = 1), Tx(content ='g', timestamp = 1326244375, bucket = 2)],
         3: [Tx(content ='b', timestamp = 1326244364, bucket = 0), Tx(content ='a', timestamp = 1326244365, bucket = 0), Tx(content ='c', timestamp = 1326244366, bucket = 0), Tx(content ='e', timestamp = 1326244367, bucket = 0), Tx(content ='d', timestamp = 1326244368, bucket = 0), Tx(content ='f', timestamp = 1326244376, bucket = 2)],
         4: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='b', timestamp = 1326244365, bucket = 0), Tx(content ='d', timestamp = 1326244366, bucket = 0), Tx(content ='c', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0)],
-        5: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='c', timestamp = 1326244365, bucket = 0), Tx(content ='b', timestamp = 1326244366, bucket = 0), Tx(content ='d', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0)]}
+        5: [Tx(content ='a', timestamp = 1326244364, bucket = 0), Tx(content ='c', timestamp = 1326244365, bucket = 0), Tx(content ='b', timestamp = 1326244366, bucket = 0), Tx(content ='d', timestamp = 1326244367, bucket = 0), Tx(content ='e', timestamp = 1326244368, bucket = 0)]
+        }
 
     # TODO: Some data processing and cleaning to get the following simplified tx_dict for the 0th bucket/epoch/batch to be processed
 
@@ -399,12 +401,47 @@ def main():
     # The following test case contains cycles(Strongly-Connected-Components)
     # and the expected output is {'a', 'e', 'c', 'b'} -> {'d'}
     # which means the Aequitas treats {'a', 'e', 'c', 'b'} as being of the same order, and this set is ordered in front of 'd'
+    #     1: ["b", "c", "e", "a", "d"],
+    #     2: ["b", "c", "e", "a", "d"],
+    #     3: ["a", "c", "b", "d", "e"],
+    #     4: ["a", "c", "b", "d", "e"],
+    #     5: ["e", "a", "b", "c", "d"],
     example_3 = {
-        1: ["b", "c", "e", "a", "d"],
-        2: ["b", "c", "e", "a", "d"],
-        3: ["a", "c", "b", "d", "e"],
-        4: ["a", "c", "b", "d", "e"],
-        5: ["e", "a", "b", "c", "d"],
+        1: [
+        Tx(content ='b', timestamp = 1326244364, bucket = 0), 
+        Tx(content ='c', timestamp = 1326244365, bucket = 0), 
+        Tx(content ='e', timestamp = 1326244366, bucket = 0), 
+        Tx(content ='a', timestamp = 1326244367, bucket = 0), 
+        Tx(content ='d', timestamp = 1326244368, bucket = 0)
+        ],
+        2: [
+        Tx(content ='b', timestamp = 1326244364, bucket = 0), 
+        Tx(content ='c', timestamp = 1326244365, bucket = 0), 
+        Tx(content ='e', timestamp = 1326244366, bucket = 0), 
+        Tx(content ='a', timestamp = 1326244367, bucket = 0), 
+        Tx(content ='d', timestamp = 1326244368, bucket = 0)
+        ],
+        3: [
+        Tx(content ='a', timestamp = 1326244364, bucket = 0), 
+        Tx(content ='c', timestamp = 1326244365, bucket = 0), 
+        Tx(content ='b', timestamp = 1326244366, bucket = 0), 
+        Tx(content ='d', timestamp = 1326244367, bucket = 0), 
+        Tx(content ='e', timestamp = 1326244368, bucket = 0)
+        ],
+        4: [
+        Tx(content ='a', timestamp = 1326244364, bucket = 0), 
+        Tx(content ='c', timestamp = 1326244365, bucket = 0), 
+        Tx(content ='b', timestamp = 1326244366, bucket = 0), 
+        Tx(content ='d', timestamp = 1326244367, bucket = 0), 
+        Tx(content ='e', timestamp = 1326244368, bucket = 0)
+        ],
+        5: [
+        Tx(content ='e', timestamp = 1326244364, bucket = 0), 
+        Tx(content ='a', timestamp = 1326244365, bucket = 0), 
+        Tx(content ='b', timestamp = 1326244366, bucket = 0), 
+        Tx(content ='c', timestamp = 1326244367, bucket = 0), 
+        Tx(content ='d', timestamp = 1326244368, bucket = 0)
+        ],
     }
     result_3 = aequitas(example_3, 0.8, 1)
     print("Example 3: ", result_3)
