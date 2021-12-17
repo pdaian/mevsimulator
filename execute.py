@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from ordering import *
 from aequitas import *
 import copy
+import json
+from web3 import Web3
 
 tx_mapping = {}
 
@@ -53,7 +55,7 @@ def same_order(txs):
     return txs
 
 def process_example_uniswap_transactions(data_file, order_function):
-
+    w3 = Web3(Web3.HTTPProvider("https://mainnet.infura.io/v3/8e629c9705104eedbfb8df312168c6c9"))
 
     # Very messy parser of transactions in plaintext into objects
     transactions = []
@@ -134,11 +136,34 @@ def process_example_uniswap_transactions(data_file, order_function):
     for i in range(1):
         # Leader maliciously shuffling
         for node in nodes_seen:
-            seq = [x[0] for x in nodes_seen[node]]
-            random.shuffle(seq)
+            seq = []
+            sender_txns = {}
+            for x in nodes_seen[node]:
+                # get txn data
+                txn_data = json.loads(Web3.toJSON(w3.eth.get_transaction(x[0].txid)))
+
+                if txn_data['from'] not in sender_txns:
+                    sender_txns[txn_data['from']] = []
+                # separate txn by sender
+                # first element is the txn and second is the nonce
+                sender_txns[txn_data['from']].append((x[0], txn_data["nonce"]))
+                
+            for sender in sender_txns:
+                # sort by non-decreasing nonce by sender address
+                sender_txns[sender].sort(key=lambda s: s[1])
+                # remove the nonce so seq is just a list of txn with non-decreasing nonce
+                sender_txns[sender] = [x[0] for x in sender_txns[sender]]
+
+            while len(sender_txns) > 0:
+                sender = random.choice(list(sender_txns.keys()))
+                seq.append(sender_txns[sender].pop(0))
+
+                if len(sender_txns[sender]) == 0:
+                    del sender_txns[sender]
+
             node_order_sequence = TransactionSequence(seq)
             node_order = node_order_sequence.get_output_with_tagged_metrics(node)
-
+            
         differences = {}
 
         for node in nodes_seen:
